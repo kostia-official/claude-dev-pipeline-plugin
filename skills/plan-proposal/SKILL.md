@@ -27,6 +27,19 @@ Short proposal, fast user feedback. **No `plan.md` is written at this stage.** T
 bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.plan-proposal.status running
 ```
 
+### No shortcuts — always propose the thorough solution
+
+When you have two plausible approaches — a quick-and-dirty patch versus a slower fix that also tidies related code, removes duplication, or extends a small refactor — **always propose the thorough one**. Not the lazy one. Not "the minimal change". Not "the smallest diff".
+
+Rationale: the user will reject a shortcut and ask for the proper fix anyway. Proposing the shortcut wastes a full proposal cycle. Propose the version that handles everything, including:
+
+- Removing the duplication that the change reveals.
+- Extracting a one-time-used helper into a common place if a second caller now needs it.
+- Updating call sites consistently rather than patching one and leaving a divergent shape elsewhere.
+- Cleaning up adjacent code that the change touches.
+
+If the user explicitly asks for "the minimal diff" or "just patch this one place" in their original request, follow that instruction — but say so in section 1 (User request) so the deviation is visible.
+
 ### 2. Print the proposal in chat — three required sections + one conditional, distinct shapes
 
 The proposal must be **scannable in under 30 seconds**. The user reviews it to redirect approach BEFORE you spend effort on a detailed plan.
@@ -71,8 +84,8 @@ For bug fixes: the diagnosis already lives in section 1.5; this section is purel
 
 **Section 2 (Plan proposal) rules:**
 
-- **Use paragraphs for better readability.** Not one wall of prose, not bullets — separate paragraphs the user can scan one at a time.
-- 2–4 short paragraphs (3–5 sentences each MAX).
+- **One idea per paragraph. Bigger separation is better.** Each distinct point — what you'll change, why, what the user-visible result is, what's out of scope — gets its own paragraph with a blank line between. Do not bundle two ideas into one paragraph just because they relate. When in doubt, split.
+- 2–5 short paragraphs (2–4 sentences each MAX).
 - Always insert a blank line between paragraphs — never produce one giant lump.
 - Plain prose, no bullets, no headers, no inline lists with commas pretending to be a list.
 - Describes **what you'll do** and the user-visible behavior change. For bug fixes, the diagnosis is in 1.5 — this section is purely the fix.

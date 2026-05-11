@@ -42,6 +42,19 @@ Same rules Claude Code uses in regular plan mode:
 
 You **may** ask interactive `AskUserQuestion` questions for genuinely unclear details. **Skip asking entirely if `state.autonomous === true`** — make the best decision and document it as a "decided" note in the plan.
 
+### 2.5. No shortcuts — write the thorough plan
+
+When you have two plausible plans — a quick-and-dirty patch versus a slower fix that also tidies related code, removes duplication, or extends a small refactor — **always write the thorough one**. Not the lazy one. Not "the minimal diff".
+
+Rationale: the user will reject a shortcut plan and ask for the proper one. Writing the shortcut wastes a full review/improve/apply cycle. The plan should include:
+
+- Removing duplication the change exposes.
+- Extracting one-time-used code into a shared place if a second caller now needs it (this should already appear in the "Reuse & extraction" section below — make sure it's concrete).
+- Updating ALL call sites consistently rather than patching one and leaving divergent shapes elsewhere.
+- Cleaning up adjacent code that the change touches.
+
+If the proposal explicitly opted for a minimal-diff approach (the user typed "just patch this one place" or similar, captured in section 1 of the approved proposal), follow that — but note in the plan's Context section that the scope is intentionally minimal.
+
 ### 3. Required plan structure
 
 Write `<RUN_DIR>/plan.md` with these sections:
