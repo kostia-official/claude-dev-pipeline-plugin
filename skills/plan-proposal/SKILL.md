@@ -1,6 +1,6 @@
 ---
 name: plan-proposal
-description: Use when an active dev-pipeline run is at the plan-proposal step. Prints a short two-section proposal (scope + technical approach) for fast user feedback before any plan file is written. Loops on feedback until approved.
+description: Use when an active dev-pipeline run is at the plan-proposal step. Prints a short three-section proposal (user request + plan proposal + technical approach) for fast user feedback before any plan file is written. Loops on feedback until approved.
 allowed-tools:
   - Read
   - Write
@@ -27,34 +27,51 @@ Short proposal, fast user feedback. **No `plan.md` is written at this stage.** T
 bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.plan-proposal.status running
 ```
 
-### 2. Print the proposal in chat — exactly two sections, distinct shapes
+### 2. Print the proposal in chat — exactly three sections, distinct shapes
 
-The proposal must be **scannable in under 30 seconds**. The user reviews it to redirect approach BEFORE you spend effort on a detailed plan. If they can't quickly read it, you've defeated the purpose of this gate.
+The proposal must be **scannable in under 30 seconds**. The user reviews it to redirect approach BEFORE you spend effort on a detailed plan.
+
+The three sections are deliberately ordered so the user can stop reading at section 1 if you misunderstood the request, instead of slogging through plan/tech-approach prose first.
 
 ```
 ## Proposal — <feature name>
 
-### 1. Scope summary
-<2–4 short paragraphs, separated by blank lines. NOT one wall of text. NOT bullets.>
+### 1. User request
+<ONE short paragraph (2–4 sentences) restating, in your own words, what the user is asking you to do. This is the model's understanding of the task. NOT the plan. NOT bug analysis. NOT "what's wrong". Just: "you want me to <X> so that <Y>."
 
-<Paragraph 1: what the feature is in plain prose.>
+If the user explicitly told you the goal/why, paraphrase faithfully. If they gave only symptoms or a vague ask, state the inferred goal here so they can correct you immediately.>
 
-<Paragraph 2: key user-visible behavior decisions.>
+### 2. Plan proposal
+<2–4 short paragraphs, separated by blank lines, describing what you plan to do — in key words and at a level the user can quickly scan. Same length budget as a tight scope summary.
 
-<Optional paragraph 3: out of scope (one short paragraph, not a list).>
+NOT root-cause analysis. NOT a bug report. NOT a re-statement of section 1. Each paragraph should describe a chunk of the plan: what to add/change/remove, what the user-visible result will be, and what's deliberately out of scope.>
 
-### 2. Technical approach
+### 3. Technical approach
 - <one bullet per key technical DECISION; ≤ 1 line each>
 - <5–8 bullets max>
 ```
 
-**Scope summary rules:**
+**Section 1 (User request) rules:**
 
-- **Scope summary must use paragraphs for better readability.** Not one wall of prose, not bullets — separate paragraphs the user can scan one at a time.
+- ONE paragraph, 2–4 sentences. Any longer means you've started planning — move it to section 2.
+- Restate the request faithfully, in plain language. Add the inferred goal/why if the user gave only symptoms.
+- This section exists so the user can correct your understanding before reading further. If they say "no, you misunderstood" — you saved them from reviewing a plan based on the wrong premise.
+
+**Section 2 (Plan proposal) rules:**
+
+- **Use paragraphs for better readability.** Not one wall of prose, not bullets — separate paragraphs the user can scan one at a time.
 - 2–4 short paragraphs (3–5 sentences each MAX).
 - Always insert a blank line between paragraphs — never produce one giant lump.
 - Plain prose, no bullets, no headers, no inline lists with commas pretending to be a list.
-- Describes the feature and user-visible behavior. NOT implementation.
+- Describes **what you'll do** and the user-visible behavior change. NOT what's broken, NOT why it's broken, NOT a re-explanation of the request.
+
+**Anti-example (do NOT produce this) for Plan proposal:**
+
+> The demo safety-routine cron on sandbox is spamming retry warnings (`submitForm.fileUpload: unable to run execution in global scope in server context`) and the uploads ultimately fail. Root cause is a single line in `uploadWithSystemIdentity` that opens a fresh execution scope with type `'client'`. The server-side scope executor hard-throws on `'client'` and `'global'` — only `resolver/http/job/lambda` are permitted.
+
+That's bug analysis (belongs in `context.md` or section 1), not a plan. Equivalent Plan proposal paragraph:
+
+> Switch the scope type used by `uploadWithSystemIdentity` from `'client'` to a server-permitted type so the Bull-cron and API-server paths can run it without throwing. CLI behaviour is unchanged. Downstream upload code is untouched. Out of scope: refactoring `withRetry` to skip programmer errors, and any cleanup of the `'client'`/`'global'` taxonomy itself.
 
 **Technical approach rules — every bullet must satisfy ALL of these:**
 
@@ -107,7 +124,7 @@ Use `AskUserQuestion`:
   4. **Once aligned** (or if you had no hesitation in step 2):
      - **If feedback added new details** about the feature itself (clarifications, additional related files, new constraints, scope changes) — patch `<RUN_DIR>/context.md` in place. Append to the relevant section (Feature explanation / Related files / Risks & unknowns). Never silently drop user-provided detail.
 
-  5. **Print the updated proposal in full** using the same two-section format from step 2. Don't print a diff or "what changed" note — reprint the whole thing.
+  5. **Print the updated proposal in full** using the same three-section format from step 2. Don't print a diff or "what changed" note — reprint the whole thing.
 
   6. Loop back to step 3 (ask for approval again).
 
