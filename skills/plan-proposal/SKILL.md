@@ -85,7 +85,8 @@ For bug fixes: the diagnosis already lives in section 1.5; this section is purel
 **Section 2 (Plan proposal) rules:**
 
 - **One idea per paragraph. Bigger separation is better.** Each distinct point — what you'll change, why, what the user-visible result is, what's out of scope — gets its own paragraph with a blank line between. Do not bundle two ideas into one paragraph just because they relate. When in doubt, split.
-- 2–5 short paragraphs (2–4 sentences each MAX).
+- **No fixed count.** Include every key point the user needs to evaluate the plan. If a real proposal has 8 distinct points, write 8 paragraphs. Never drop a key detail to hit a length target.
+- **No bloat either.** Each paragraph carries information. No padding sentences, no restating section 1, no "as mentioned above". If a paragraph isn't adding a new key point, delete it.
 - Always insert a blank line between paragraphs — never produce one giant lump.
 - Plain prose, no bullets, no headers, no inline lists with commas pretending to be a list.
 - Describes **what you'll do** and the user-visible behavior change. For bug fixes, the diagnosis is in 1.5 — this section is purely the fix.

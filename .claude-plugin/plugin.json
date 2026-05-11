@@ -1,7 +1,7 @@
 {
   "name": "dp",
   "description": "Feature-planning pipeline for Claude Code: investigation → proposal → plan → review → implementation → codereview, with persistent state and hook-enforced rules.",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "author": {
     "name": "kostia-official",
     "url": "https://github.com/kostia-official"
