@@ -60,9 +60,16 @@ If the user explicitly told you the goal/why, paraphrase faithfully. If they gav
 Lets the user verify your diagnosis is right BEFORE reviewing the fix.>
 
 ### 2. Plan proposal
-<2–4 short paragraphs, separated by blank lines, describing what you plan to do — in key words and at a level the user can quickly scan.
+<Bullet list. One bullet per distinct point. Each bullet 1–3 lines, no more.
 
-For bug fixes: the diagnosis already lives in section 1.5; this section is purely the fix. For features/refactors: this is the meat of the proposal. Each paragraph should describe a chunk of the plan: what to add/change/remove, what the user-visible result will be, and what's deliberately out of scope.>
+Cover everything the user needs to evaluate the plan: what you'll add/change/remove, the user-visible result, what's deliberately out of scope.
+
+For bug fixes: the diagnosis already lives in 1.5; bullets here are purely the fix.>
+
+- <first key point>
+- <next key point>
+- ...
+- Out of scope: <one final bullet listing what's intentionally not in this plan>
 
 ### 3. Technical approach
 - <one bullet per key technical DECISION; ≤ 1 line each>
@@ -84,29 +91,30 @@ For bug fixes: the diagnosis already lives in section 1.5; this section is purel
 
 **Section 2 (Plan proposal) rules:**
 
-- **One idea per paragraph. Bigger separation is better.** Each distinct point — what you'll change, why, what the user-visible result is, what's out of scope — gets its own paragraph with a blank line between. Do not bundle two ideas into one paragraph just because they relate. When in doubt, split.
-- **No fixed count.** Include every key point the user needs to evaluate the plan. If a real proposal has 8 distinct points, write 8 paragraphs. Never drop a key detail to hit a length target.
-- **No bloat either.** Each paragraph carries information. No padding sentences, no restating section 1, no "as mentioned above". If a paragraph isn't adding a new key point, delete it.
-- Always insert a blank line between paragraphs — never produce one giant lump.
-- Plain prose, no bullets, no headers, no inline lists with commas pretending to be a list.
-- Describes **what you'll do** and the user-visible behavior change. For bug fixes, the diagnosis is in 1.5 — this section is purely the fix.
+- **Bullet list.** One distinct point per bullet. No prose paragraphs. No headers, no nested sub-bullets unless absolutely required.
+- **One idea per bullet.** Do not bundle two ideas into one bullet just because they relate. When in doubt, split.
+- **No fixed count.** Include every key point the user needs to evaluate the plan. If there are 8 distinct points, write 8 bullets. Never drop a key detail to hit a length target.
+- **No bloat.** Each bullet carries new information. No padding, no restating section 1, no "as mentioned above". Delete any bullet that doesn't add a key point.
+- Each bullet is 1–3 lines. If it wraps past three lines, you're packing implementation detail in — that belongs in `plan.md`, not the proposal.
+- **Last bullet is always "Out of scope: …"** listing what's intentionally not part of this plan.
+- Describes **what you'll do** and the user-visible behavior change. For bug fixes, the diagnosis is in 1.5 — bullets here are purely the fix.
 
-**Anti-example for a bug fix — root cause was missing AND section 2 was filled with diagnosis prose:**
+**Anti-example for a bug fix — section 2 written as prose, root cause missing:**
 
 > ### 2. Plan proposal
 > The demo safety-routine cron on sandbox is spamming retry warnings (`submitForm.fileUpload: unable to run execution in global scope in server context`) and the uploads ultimately fail. Root cause is a single line in `uploadWithSystemIdentity` that opens a fresh execution scope with type `'client'`. The server-side scope executor hard-throws on `'client'` and `'global'` — only `resolver/http/job/lambda` are permitted. The CLI seed never tripped this because the CLI doesn't initialize the server scope executor at all.
 
-Three paragraphs of cause, zero paragraphs of plan, and 1.5 was missing.
+Prose instead of bullets, all diagnosis no plan, and 1.5 was missing.
 
-**Correct shape for the same bug-fix proposal — 1.5 holds the diagnosis, 2 holds the fix:**
+**Correct shape for the same bug-fix proposal — 1.5 holds the diagnosis, 2 is a bullet list:**
 
 > ### 1.5. Root cause
 > `uploadWithSystemIdentity` opens a fresh execution scope of type `'client'`. The server-side scope executor (API server + Bull worker) hard-throws on `'client'`/`'global'` — only `resolver/http/job/lambda` are allowed. CLI silently accepted it via a permissive default-executor, which is why it wasn't caught.
 >
 > ### 2. Plan proposal
-> Switch the scope type used by `uploadWithSystemIdentity` from `'client'` to a server-permitted type (likely `'job'`) so the Bull-cron and API-server paths can run it without throwing. CLI behavior is unchanged because the CLI bypasses scope validation entirely.
->
-> Out of scope: refactoring `withRetry` so it doesn't blindly retry programmer errors, and any cleanup of the `'client'`/`'global'` taxonomy itself.
+> - Switch the scope type used by `uploadWithSystemIdentity` from `'client'` to a server-permitted type (likely `'job'`) so the Bull-cron and API-server paths run without throwing.
+> - CLI behaviour is unchanged because the CLI bypasses scope validation entirely.
+> - Out of scope: refactoring `withRetry` so it doesn't blindly retry programmer errors, and any cleanup of the `'client'`/`'global'` taxonomy itself.
 
 **Technical approach rules — every bullet must satisfy ALL of these:**
 
