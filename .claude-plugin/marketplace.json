@@ -1,0 +1,25 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "claude-dev-pipeline-plugin",
+  "description": "Marketplace for the dp (dev-pipeline) plugin",
+  "version": "0.3.3",
+  "owner": {
+    "name": "kostia-official",
+    "url": "https://github.com/kostia-official"
+  },
+  "plugins": [
+    {
+      "name": "dp",
+      "description": "Feature-planning pipeline for Claude Code: investigation → proposal → plan → review → implementation → codereview, with persistent state and a Stop-hook workflow gate.",
+      "version": "0.3.3",
+      "author": {
+        "name": "kostia-official",
+        "url": "https://github.com/kostia-official"
+      },
+      "source": "./",
+      "category": "development",
+      "homepage": "https://github.com/kostia-official/claude-dev-pipeline-plugin",
+      "tags": ["planning", "pipeline", "workflow", "feature-development", "tdd"]
+    }
+  ]
+}

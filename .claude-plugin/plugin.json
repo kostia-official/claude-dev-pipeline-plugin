@@ -1,0 +1,12 @@
+{
+  "name": "dp",
+  "description": "Feature-planning pipeline for Claude Code: investigation → proposal → plan → review → implementation → codereview, with persistent state and hook-enforced rules.",
+  "version": "0.3.3",
+  "author": {
+    "name": "kostia-official",
+    "url": "https://github.com/kostia-official"
+  },
+  "repository": "https://github.com/kostia-official/claude-dev-pipeline-plugin",
+  "license": "MIT",
+  "keywords": ["planning", "pipeline", "tdd", "workflow", "feature-development"]
+}
