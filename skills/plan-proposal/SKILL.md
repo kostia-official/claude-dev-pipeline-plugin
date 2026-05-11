@@ -138,6 +138,25 @@ Use `AskUserQuestion`:
   2. **Yes — Autonomous (no further questions)** — proceed AND set `state.autonomous = true`. Later steps will not prompt for approval.
   3. **No, change** — capture feedback. (User is given an "Other" option to type free-text feedback.)
 
+### 3.5. CRITICAL — interpret the answer correctly
+
+**Approval is ONLY an explicit "Yes" or "Yes — Autonomous" answer to the AskUserQuestion above.** Nothing else. In particular:
+
+- **Frustrated / rejecting / sarcastic free-text is NEVER approval.** Examples that MUST be treated as rejection + feedback, NOT as a green-light:
+  - "I will not read this"
+  - "wtf, too long"
+  - "this is unreadable"
+  - "no, this is bad"
+  - "what is this wall of text"
+  - "fuck off"
+  - Any expletive, any "lol", any visible annoyance.
+
+  Reading any of those as approval is a hard failure of the pipeline. The model MUST go back to step 4 ("Handle the answer" → "No / Other"), respond first with what it thinks the user is reacting to (almost always: proposal is lazy / wrong / too long / unclear / wrong shape), and ask via AskUserQuestion how to fix the proposal.
+
+- **Quiet agreement like "looks good" or "ok proceed"** counts as Yes (non-autonomous) — but re-issue the AskUserQuestion to lock the choice cleanly and record `approvalMode` correctly.
+
+- **When in doubt, do NOT assume approval.** Re-ask. Never advance state.json on ambiguous input.
+
 ### 4. Handle the answer
 
 - **Yes**: continue to step 5.
