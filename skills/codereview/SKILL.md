@@ -51,17 +51,31 @@ If the Skill tool errors because `/simplify` is not installed, stop and tell the
 
 Then stop. Do not advance the pipeline state — the user will retry after installing.
 
-### 4. Promise.all — quiet sidenote, not a section
+### 4. Summarise the review — skipped first, then applied
 
-Constraint: do NOT introduce or apply `Promise.all` parallelization edits. Other simplifications proceed normally.
-
-If `/simplify` (or your own scan of the diff) finds places where sequential `await` calls could be parallelized with `Promise.all`, mention them as a **single inline sidenote** at the end of your chat output — no section header, no list with severities, just one short line:
+After `/simplify` finishes, print a structured summary with two sections **in this order**: skipped fixes (so the user sees rejected proposals up front, with rationale), then applied fixes.
 
 ```
-Sidenote: a couple of Promise.all opportunities (<file>:<line>, <file>:<line>) — consider parallelizing if perf matters.
+## Code review
+
+### Skipped fixes (proposed but not applied)
+1. `<path>:<line>` — <one-line description of what /simplify proposed>
+   Skipped because: <one-line rationale — e.g. "Promise.all parallelization (dp:codereview rule: never auto-apply)", "would change observable behavior", "trade-off the user should decide".>
+
+2. ...
+
+### Applied fixes
+1. `<path>:<line>` — <one-line description of what was changed>
+2. ...
 ```
 
-If there are no such opportunities, say **nothing** about Promise.all. Do not print an empty "Promise.all suggestions: None." line — that just adds noise.
+Rules:
+
+- **Skipped goes first.** The user values seeing the rejected suggestions more than the applied ones — it tells them whether the model agreed with `/simplify` or pushed back.
+- If `/simplify` proposed something and you (or its own logic) didn't apply it, you MUST list it under "Skipped" with the reason. Don't just drop it silently.
+- **Promise.all is ALWAYS skipped.** Constraint: do not introduce or apply `Promise.all` parallelization edits. If `/simplify` flagged any, list them under "Skipped" with rationale "Promise.all parallelization — dp:codereview rule: never auto-apply".
+- If a section is empty, omit it entirely (don't print "None." rows).
+- File paths in the summary should be **markdown links** so the user can click — same convention as elsewhere in the pipeline.
 
 ### 5. Mark done and advance
 
