@@ -141,10 +141,9 @@ Use that level of compression for technical approach.
 Use `AskUserQuestion`:
 
 - **Question**: "Approve this proposal and continue to detailed planning?"
-- **Options**:
+- **Options** (only two — "Other" is auto-added by the tool and covers any rejection or change request):
   1. **Yes** — proceed to `dp:plan`. Keep checkpoint prompts active for later steps.
-  2. **Yes — Autonomous (no further questions)** — proceed AND set `state.autonomous = true`. Later steps will not prompt for approval.
-  3. **No, change** — capture feedback. (User is given an "Other" option to type free-text feedback.)
+  2. **Yes — Autonomous (no further questions)** — proceed and skip all remaining approval prompts.
 
 ### 3.5. CRITICAL — interpret the answer correctly
 
@@ -159,7 +158,7 @@ Use `AskUserQuestion`:
   - "fuck off"
   - Any expletive, any "lol", any visible annoyance.
 
-  Reading any of those as approval is a hard failure of the pipeline. The model MUST go back to step 4 ("Handle the answer" → "No / Other"), respond first with what it thinks the user is reacting to (almost always: proposal is lazy / wrong / too long / unclear / wrong shape), and ask via AskUserQuestion how to fix the proposal.
+  Reading any of those as approval is a hard failure of the pipeline. The model MUST go back to step 4 ("Handle the answer" → "Other / free-text feedback"), respond first with what it thinks the user is reacting to (almost always: proposal is lazy / wrong / too long / unclear / wrong shape), and ask via AskUserQuestion how to fix the proposal.
 
 - **Quiet agreement like "looks good" or "ok proceed"** counts as Yes (non-autonomous) — but re-issue the AskUserQuestion to lock the choice cleanly and record `approvalMode` correctly.
 
@@ -169,7 +168,7 @@ Use `AskUserQuestion`:
 
 - **Yes**: continue to step 5.
 - **Yes — Autonomous**: also run `bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> autonomous true`. Continue.
-- **No / Other (with feedback)** — this is a **dialog**, not a command queue. Do NOT silently apply the feedback and reprint. Procedure:
+- **Other / free-text feedback** — this is a **dialog**, not a command queue. Do NOT silently apply the feedback and reprint. Procedure:
 
   1. **Carefully re-read** the feedback. Treat every word as intentional.
 
