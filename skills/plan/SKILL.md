@@ -23,10 +23,12 @@ Write a detailed plan document. The proposal is already approved; now produce a 
 
 ## Procedure
 
+**Session id**: if a `DP_SESSION_ID=<id>` line is present in your conversation context (see the orchestrator command's "Session id capture and propagation" section for the matching rule), substitute that value for every `<DP_SESSION_ID>` placeholder in the bun commands below. If the line is not in context, drop the `--session "<DP_SESSION_ID>"` argument entirely; `advance.ts` falls back to `process.env.DP_SESSION_ID`.
+
 ### 1. Mark running
 
 ```
-bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.plan.status running
+bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.plan.status running --session "<DP_SESSION_ID>"
 ```
 
 ### 2. Apply built-in plan-mode discipline
@@ -103,8 +105,8 @@ Things you considered but decided not to do, with one-line reasons.
 ### 4. Mark done and advance
 
 ```
-bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.plan.artifact "plan.md"
-bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts advance <RUN_DIR> plan
+bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.plan.artifact "plan.md" --session "<DP_SESSION_ID>"
+bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts advance <RUN_DIR> plan --session "<DP_SESSION_ID>"
 ```
 
 ### 5. Hand off — INVOKE `dp:plan-improve`, do not text-stop

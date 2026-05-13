@@ -21,10 +21,12 @@ Review the plan. **Self-contained**: this skill embeds the original `/plan-impro
 
 ## Procedure
 
+**Session id**: if a `DP_SESSION_ID=<id>` line is present in your conversation context (see the orchestrator command's "Session id capture and propagation" section for the matching rule), substitute that value for every `<DP_SESSION_ID>` placeholder in the bun commands below. If the line is not in context, drop the `--session "<DP_SESSION_ID>"` argument entirely; `advance.ts` falls back to `process.env.DP_SESSION_ID`.
+
 ### 1. Mark running
 
 ```
-bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.plan-improve.status running
+bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.plan-improve.status running --session "<DP_SESSION_ID>"
 ```
 
 ### 2. Review discipline
@@ -76,8 +78,8 @@ If no issues are found, write a single line: `No issues found.` (still write the
 ### 5. Mark done and advance
 
 ```
-bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.plan-improve.artifact "review.md"
-bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts advance <RUN_DIR> plan-improve
+bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.plan-improve.artifact "review.md" --session "<DP_SESSION_ID>"
+bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts advance <RUN_DIR> plan-improve --session "<DP_SESSION_ID>"
 ```
 
 ### 6. Hand off — INVOKE `dp:plan-improve-apply`, do not text-stop

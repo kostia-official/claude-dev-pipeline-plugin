@@ -1,5 +1,6 @@
 import { resolve, join } from "node:path";
 import { existsSync, mkdirSync } from "node:fs";
+import { UNOWNED_LABEL } from "./hookSession.ts";
 
 export const STEP_ORDER = [
   "investigation",
@@ -35,6 +36,9 @@ export interface PipelineState {
   currentStep: StepName | "done";
   steps: Record<StepName, StepState>;
   args: string;
+  // Identifies the Claude Code session that owns this run. Absence = legacy
+  // run created before session scoping; eligible for tag-on-touch adoption.
+  sessionId?: string;
 }
 
 export function statePath(runDir: string): string {
@@ -60,7 +64,7 @@ export async function writeState(runDir: string, state: PipelineState): Promise<
   await Bun.write(path, JSON.stringify(state, null, 2) + "\n");
 }
 
-export function buildInitialState(slug: string, args: string): PipelineState {
+export function buildInitialState(slug: string, args: string, sessionId?: string): PipelineState {
   const now = new Date().toISOString();
   const steps = STEP_ORDER.reduce(
     (acc, step) => {
@@ -69,7 +73,7 @@ export function buildInitialState(slug: string, args: string): PipelineState {
     },
     {} as Record<StepName, StepState>,
   );
-  return {
+  const state: PipelineState = {
     name: slug,
     createdAt: now,
     updatedAt: now,
@@ -79,6 +83,8 @@ export function buildInitialState(slug: string, args: string): PipelineState {
     steps,
     args,
   };
+  if (sessionId) state.sessionId = sessionId;
+  return state;
 }
 
 export function nextStep(step: StepName): StepName | "done" {
@@ -97,6 +103,24 @@ export function getByPath(obj: unknown, dotted: string): unknown {
     cur = (cur as Record<string, unknown>)[part];
   }
   return cur;
+}
+
+export function formatStateSummary(state: PipelineState, runDir?: string): string {
+  const lines: string[] = [];
+  lines.push(`Pipeline: ${state.name}`);
+  if (runDir) lines.push(`Dir:      ${runDir}`);
+  lines.push(`Active:   ${state.active}`);
+  lines.push(`Auto:     ${state.autonomous}`);
+  lines.push(`Session:  ${state.sessionId ?? UNOWNED_LABEL}`);
+  lines.push(`Current:  ${state.currentStep}`);
+  lines.push("");
+  lines.push("Steps:");
+  for (const step of STEP_ORDER) {
+    const s = state.steps[step];
+    const marker = s.status === "done" ? "✓" : s.status === "running" ? "▶" : s.status === "failed" ? "✗" : "·";
+    lines.push(`  ${marker} ${step.padEnd(20)} ${s.status}${s.artifact ? `  (${s.artifact})` : ""}`);
+  }
+  return lines.join("\n");
 }
 
 export function setByPath(obj: Record<string, unknown>, dotted: string, value: unknown): void {

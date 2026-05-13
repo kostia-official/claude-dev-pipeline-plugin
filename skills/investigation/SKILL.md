@@ -24,10 +24,12 @@ You are running the **investigation** step of an active dev-pipeline run. Your g
 
 ## Procedure
 
+**Session id**: if a `DP_SESSION_ID=<id>` line is present in your conversation context (see the orchestrator command's "Session id capture and propagation" section for the matching rule), substitute that value for every `<DP_SESSION_ID>` placeholder in the bun commands below. If the line is not in context, drop the `--session "<DP_SESSION_ID>"` argument entirely; `advance.ts` falls back to `process.env.DP_SESSION_ID`.
+
 ### 1. Mark the step as running
 
 ```
-bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.investigation.status running
+bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.investigation.status running --session "<DP_SESSION_ID>"
 ```
 
 ### 2. Gather context — go wide, not narrow
@@ -80,8 +82,8 @@ Specific functions / components / utilities already in the codebase that solve s
 ### 4. Record the artifact and advance
 
 ```
-bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.investigation.artifact "context.md"
-bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts advance <RUN_DIR> investigation
+bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.investigation.artifact "context.md" --session "<DP_SESSION_ID>"
+bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts advance <RUN_DIR> investigation --session "<DP_SESSION_ID>"
 ```
 
 ### 5. Hand off — INVOKE THE NEXT SKILL, do not text-stop

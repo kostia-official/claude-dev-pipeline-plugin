@@ -20,7 +20,10 @@ export function findFeaturePipelineDir(startDir: string): string | null {
   }
 }
 
-export async function findActiveRun(startDir: string): Promise<ActiveRun | null> {
+export async function findActiveRun(
+  startDir: string,
+  currentSessionId?: string | null,
+): Promise<ActiveRun | null> {
   const fpDir = findFeaturePipelineDir(startDir);
   if (!fpDir) return null;
   const entries = readdirSync(fpDir, { withFileTypes: true });
@@ -32,7 +35,14 @@ export async function findActiveRun(startDir: string): Promise<ActiveRun | null>
     if (!existsSync(stateFile)) continue;
     try {
       const state = await readState(runDir);
-      if (state.active) active.push({ runDir, state });
+      if (!state.active) continue;
+      // Session filter: when current session id is known, hide runs that
+      // are owned by a different session. Untagged (legacy) runs remain
+      // visible — they get adopted via tag-on-touch in advance.ts.
+      if (currentSessionId && state.sessionId && state.sessionId !== currentSessionId) {
+        continue;
+      }
+      active.push({ runDir, state });
     } catch {
       continue;
     }

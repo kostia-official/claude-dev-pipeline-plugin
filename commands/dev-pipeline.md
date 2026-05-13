@@ -23,6 +23,18 @@ You are starting or resuming a `dp` (dev-pipeline) feature-planning run. Follow 
 - `$ARGUMENTS` — free-form text. Could be a feature description, a path, or a phrase like "continue <name>".
 - Working directory (`pwd`) — the **consumer project root** where pipeline state will live at `<pwd>/.claude/feature-pipeline/<name>/`.
 
+## Session id capture and propagation (canonical convention)
+
+This convention is referenced by every `dp:*` skill. Read carefully — every `advance.ts` invocation in this plugin should follow it.
+
+**Where the id comes from.** Claude Code's SessionStart hook (`scripts/hooks/capture-session.ts`) emits a `DP_SESSION_ID=<id>` line via `hookSpecificOutput.additionalContext` whenever a session starts. That line appears as a system reminder in your conversation context. The same hook also appends `export DP_SESSION_ID=<id>` to `$CLAUDE_ENV_FILE` for bash subprocess fallback.
+
+**How to extract it.** Scan the conversation's system-reminder messages for a line matching the regex `^DP_SESSION_ID=(\S+)$`. If multiple matches exist (e.g. across `/clear` boundaries), take the **last** one — it reflects the current session. Call the captured value `<DP_SESSION_ID>`.
+
+**How to use it.** When you call `bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts <set|advance|abort> ...`, append `--session "<DP_SESSION_ID>"` at the end. When you call `init`, pass `<DP_SESSION_ID>` as the 4th positional argument.
+
+**If the line isn't in context.** Omit `--session` entirely; `advance.ts` falls back to `process.env.DP_SESSION_ID` from the CLAUDE_ENV_FILE export. If both are absent (rare — happens after a mid-conversation upgrade before a session restart), the run will be created without a sessionId tag. Print a one-line warning and proceed.
+
 ## Step 1 — Classify `$ARGUMENTS`
 
 Pick exactly one classification:
@@ -45,13 +57,13 @@ Strategy:
 
 1. Strip the keyword. The remainder is the candidate feature description.
 2. List `<pwd>/.claude/feature-pipeline/*/state.json` (use Glob).
-3. For each, read `state.json` and consider only those with `active: true`.
+3. For each, read `state.json` and consider only those with `active: true`. **Do NOT apply the session filter on this path** — the user explicitly asked to resume, so cross-session matches are intentional.
 4. Match by:
    - Exact slug match against directory name, OR
    - Prefix match (slug starts-with the slugified remainder), OR
    - Fuzzy substring match on `state.args` or `state.name` (case-insensitive).
 5. Resolution:
-   - **Exactly one match** → resume that run.
+   - **Exactly one match** → resume that run (proceed to ownership transfer in step 2).
    - **Zero matches** → list ALL active runs (their names + step + last update) via `AskUserQuestion`: "Which run should I continue?". Include "None — start a new run instead" as the last option.
    - **Multiple matches** → list candidates via `AskUserQuestion`.
 
@@ -71,32 +83,26 @@ Anything else: treat `$ARGUMENTS` as a feature description.
 mkdir -p <pwd>/.claude/feature-pipeline/<slug>/
 ```
 
-Write `<run-dir>/state.json` with this initial content (substitute current ISO timestamp and the original `$ARGUMENTS` into `args`):
+Then run `advance.ts init` to create `state.json`. Pass `<DP_SESSION_ID>` as the 4th positional if available, otherwise omit:
 
-```json
-{
-  "name": "<slug>",
-  "createdAt": "<ISO timestamp>",
-  "active": true,
-  "autonomous": false,
-  "currentStep": "investigation",
-  "steps": {
-    "investigation":      { "status": "pending" },
-    "plan-proposal":      { "status": "pending" },
-    "plan":               { "status": "pending" },
-    "plan-improve":       { "status": "pending" },
-    "plan-improve-apply": { "status": "pending" },
-    "plan-wrapup":        { "status": "pending" },
-    "implementation":     { "status": "pending" },
-    "codereview":         { "status": "pending" }
-  },
-  "args": "<original $ARGUMENTS>"
-}
+```
+bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts init <run-dir> <slug> "<args>" "<DP_SESSION_ID>"
 ```
 
-### For resumed runs
+The script writes the canonical initial shape (all steps pending, currentStep=investigation, active=true) and includes `sessionId` in the file when the 4th arg or `process.env.DP_SESSION_ID` is non-empty.
 
-Just read `<run-dir>/state.json` — do not overwrite.
+### For resumed runs — TRANSFER OWNERSHIP
+
+For both the "Explicit continuation by path" and "Implicit continuation by phrasing" paths, after locating the target run:
+
+1. Read `<run-dir>/state.json` (do not overwrite the whole file).
+2. **Transfer ownership to the current session** so the Stop hook keeps enforcing progression on this run:
+
+   ```
+   bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts set <run-dir> sessionId '"<DP_SESSION_ID>"' --session "<DP_SESSION_ID>"
+   ```
+
+   If `<DP_SESSION_ID>` is unavailable, skip this step and print a warning — without ownership transfer the Stop hook will be inert for the resumed run.
 
 ## Step 3 — Announce
 
@@ -159,12 +165,15 @@ When the user asks things like "what's the state of my pipeline run?", "abort th
 All state mutations should go through:
 
 ```
-bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts <subcommand> <run-dir> [args...]
+bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts <subcommand> <run-dir> [args...] [--session <id>]
 ```
 
 Subcommands:
-- `init <run-dir> <slug> "<args>"` — create initial state.json
+- `init <run-dir> <slug> "<args>" [<session-id>]` — create initial state.json. 4th positional is the session id (optional).
 - `get <run-dir> <dotted.path>` — read a value
-- `set <run-dir> <dotted.path> <json-value>` — write a value
-- `advance <run-dir> <step-name>` — mark step done and bump currentStep to next
-- `status <run-dir>` — print human-readable progress table
+- `set <run-dir> <dotted.path> <json-value> [--session <id>]` — write a value; `--session` triggers tag-on-touch if state has no sessionId.
+- `advance <run-dir> <step-name> [--session <id>]` — mark step done and bump currentStep to next; supports tag-on-touch.
+- `abort <run-dir> [--session <id>]` — set active=false; supports tag-on-touch.
+- `status <run-dir>` — print human-readable progress table.
+
+When `--session` is omitted, the script falls back to `process.env.DP_SESSION_ID`. When both are absent, no tag-on-touch fires.

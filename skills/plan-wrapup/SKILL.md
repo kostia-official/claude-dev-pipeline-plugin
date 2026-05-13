@@ -21,10 +21,12 @@ Final sanity pass + user sign-off on `plan.md` before implementation begins.
 
 ## Procedure
 
+**Session id**: if a `DP_SESSION_ID=<id>` line is present in your conversation context (see the orchestrator command's "Session id capture and propagation" section for the matching rule), substitute that value for every `<DP_SESSION_ID>` placeholder in the bun commands below. If the line is not in context, drop the `--session "<DP_SESSION_ID>"` argument entirely; `advance.ts` falls back to `process.env.DP_SESSION_ID`.
+
 ### 1. Mark running
 
 ```
-bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.plan-wrapup.status running
+bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.plan-wrapup.status running --session "<DP_SESSION_ID>"
 ```
 
 ### 2. Re-read `plan.md` end to end
@@ -69,7 +71,7 @@ Changes since proposal:
 - **Reject**:
   1. Set `state.json.active = false` via:
      ```
-     bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts abort <RUN_DIR>
+     bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts abort <RUN_DIR> --session "<DP_SESSION_ID>"
      ```
   2. Tell the user: pipeline aborted; artifacts preserved at `<RUN_DIR>` for inspection.
   3. Stop.
@@ -77,7 +79,7 @@ Changes since proposal:
 ### 6. Advance
 
 ```
-bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts advance <RUN_DIR> plan-wrapup
+bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts advance <RUN_DIR> plan-wrapup --session "<DP_SESSION_ID>"
 ```
 
 ### 7. Hand off — INVOKE `dp:implementation`, do not text-stop

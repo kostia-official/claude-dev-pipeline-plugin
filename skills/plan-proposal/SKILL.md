@@ -21,10 +21,12 @@ Short proposal, fast user feedback. **No `plan.md` is written at this stage.** T
 
 ## Procedure
 
+**Session id**: if a `DP_SESSION_ID=<id>` line is present in your conversation context (see the orchestrator command's "Session id capture and propagation" section for the matching rule), substitute that value for every `<DP_SESSION_ID>` placeholder in the bun commands below. If the line is not in context, drop the `--session "<DP_SESSION_ID>"` argument entirely; `advance.ts` falls back to `process.env.DP_SESSION_ID`.
+
 ### 1. Mark step as running
 
 ```
-bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.plan-proposal.status running
+bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.plan-proposal.status running --session "<DP_SESSION_ID>"
 ```
 
 ### No shortcuts — always propose the thorough solution
@@ -167,7 +169,7 @@ Use `AskUserQuestion`:
 ### 4. Handle the answer
 
 - **Yes**: continue to step 5.
-- **Yes — Autonomous**: also run `bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> autonomous true`. Continue.
+- **Yes — Autonomous**: also run `bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> autonomous true`. Continue. --session "<DP_SESSION_ID>"
 - **Other / free-text feedback** — this is a **dialog**, not a command queue. Do NOT silently apply the feedback and reprint. Procedure:
 
   1. **Carefully re-read** the feedback. Treat every word as intentional.
@@ -194,10 +196,10 @@ Use `AskUserQuestion`:
 Record the approval mode and advance:
 
 ```
-bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.plan-proposal.approvalMode '"yes"'
+bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.plan-proposal.approvalMode '"yes"' --session "<DP_SESSION_ID>"
 # or '"yes-autonomous"' if option 2 was chosen
-bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.plan-proposal.approvedAt '"<ISO timestamp>"'
-bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts advance <RUN_DIR> plan-proposal
+bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.plan-proposal.approvedAt '"<ISO timestamp>"' --session "<DP_SESSION_ID>"
+bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts advance <RUN_DIR> plan-proposal --session "<DP_SESSION_ID>"
 ```
 
 ### 6. Hand off — INVOKE `dp:plan`, do not text-stop

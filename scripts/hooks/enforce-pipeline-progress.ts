@@ -1,27 +1,23 @@
 #!/usr/bin/env bun
 /**
- * Plugin-wide Stop hook.
+ * Plugin-wide Stop hook. Enforces pipeline progression for the CURRENT session.
  *
- * Enforces pipeline progression so the orchestrator and skills cannot text-stop
- * mid-pipeline. Two checks, in order:
+ * Order matters: read session_id from stdin BEFORE calling findActiveRun,
+ * otherwise the filter is silently a no-op.
  *
- *   1. If `state.steps[currentStep].status === "pending"`, the orchestrator (or
- *      the previous skill) finished its turn without actually invoking the next
- *      skill. BLOCK with a clear instruction to invoke /dp:<currentStep>.
- *
- *   2. If `currentStep === "implementation"` and `steps.implementation.checksPassed !== true`,
- *      typecheck + lint haven't been recorded as passing. BLOCK.
- *
- * Inert outside an active pipeline run (no run dir → exit 0).
+ * Block checks (once a session-owned active run is found):
+ *   A. steps[currentStep].status === "pending"   → orchestrator/chain didn't
+ *      hand off; force Skill invocation.
+ *   B. currentStep === "implementation" and !checksPassed → typecheck/lint
+ *      hasn't been recorded; force the gate.
  */
 
 import { findActiveRun } from "../lib/findRun.ts";
+import { readHookSessionId, resolveSessionIdFromEnv } from "../lib/hookSession.ts";
 
-// drain stdin so the hook framework doesn't complain
-await Bun.stdin.text().catch(() => "");
+const sessionId = (await readHookSessionId()) ?? resolveSessionIdFromEnv();
 
-const cwd = process.cwd();
-const run = await findActiveRun(cwd);
+const run = await findActiveRun(process.cwd(), sessionId);
 if (!run) process.exit(0);
 
 const { runDir, state } = run;
@@ -31,7 +27,6 @@ if (state.currentStep === "done") process.exit(0);
 const stepName = state.currentStep;
 const step = state.steps[stepName];
 
-// Check 1: orchestrator / chain hand-off failed.
 if (step.status === "pending") {
   const reason = [
     `dp pipeline run "${state.name}" is at step "${stepName}" but its status is "pending".`,
@@ -47,7 +42,6 @@ if (step.status === "pending") {
   process.exit(0);
 }
 
-// Check 2: implementation checks must have passed.
 if (stepName === "implementation" && step.checksPassed !== true) {
   const reason = [
     `dp:implementation has not recorded a successful typecheck + lint pass.`,

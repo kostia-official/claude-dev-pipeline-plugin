@@ -85,6 +85,20 @@ The skill body also instructs Claude to never introduce `: any` or dirty `as <Ty
 
 Outside the implementation step, normal Edit/Write/Stop are completely untouched.
 
+### Session scoping
+
+Each Claude Code session sees only the pipeline runs it created (or runs it explicitly resumed). Two concurrent sessions in the same project do **not** interfere with each other — one session's Stop hook will not block the other session's text-stops.
+
+Mechanism:
+
+- A `SessionStart` hook captures Claude Code's `session_id` from the hook event payload and exposes it to the conversation via `hookSpecificOutput.additionalContext` as a line `DP_SESSION_ID=<id>`. The hook also writes `export DP_SESSION_ID=<id>` to `$CLAUDE_ENV_FILE` for bash-subprocess fallback.
+- The orchestrator and every skill body read `DP_SESSION_ID` from context and pass `--session "<id>"` to `advance.ts`. `advance.ts` also reads `process.env.DP_SESSION_ID` if the flag is absent.
+- `findActiveRun` filters runs by `state.sessionId`. The Stop hook reads `session_id` from its own stdin payload, so it always knows the current session.
+- **Tag-on-touch**: any pre-existing run without a `sessionId` field gets adopted by the first session that calls `advance.ts set | advance | abort` on it.
+- **Explicit-resume transfers ownership**: `/dp:dev-pipeline <abs-path>` and `/dp:dev-pipeline continue <name>` overwrite `state.sessionId` to the current session id before invoking the next skill, so cross-session and post-`/clear` resumes work normally.
+
+We deliberately use `DP_SESSION_ID` rather than reusing `DEEP_SESSION_ID` from the deep-plan plugin — both values are identical (Claude Code's `session_id`), but the separate name keeps this plugin from depending on deep-plan being installed.
+
 ## Working on the plugin itself
 
 Develop directly against the source tree at `~/projects/claude-dev-pipeline-plugin/`:
@@ -120,6 +134,13 @@ End users update via:
 ```
 
 (Or enable auto-update for that marketplace in `/plugin > Marketplaces`.)
+
+### Upgrading from v0.4.x to v0.5.0
+
+v0.5.0 introduces session scoping (see "Session scoping" above). Two upgrade caveats:
+
+- **SessionStart hooks fire only on session start.** After running `/plugin marketplace update` + `/reload-plugins` in an *existing* conversation, the new hook code is loaded but the SessionStart hook does NOT fire retroactively — so `DP_SESSION_ID` is not in the current conversation's context, and `process.env.DP_SESSION_ID` is also empty (the env-var write happens in the hook, which never ran for this session). Any `/dp:dev-pipeline` run started in this stale conversation will be created **without** a sessionId tag. To get the fix, **start a fresh Claude Code session in the project** before starting your next pipeline run.
+- **Existing active runs from before the upgrade have no sessionId.** They will be adopted on first interaction (tag-on-touch). If two old sessions both reference such a run, only the first to interact with it claims it. If you have a stale `active: true` run you don't intend to resume, run `bun ~/projects/claude-dev-pipeline-plugin/scripts/cli/advance.ts abort <run-dir>` to mark it inert.
 
 ## File layout
 

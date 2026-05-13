@@ -28,10 +28,12 @@ Implement the approved plan. The plugin's plugin-wide Stop hook (`enforce-pipeli
 
 ## Procedure
 
+**Session id**: if a `DP_SESSION_ID=<id>` line is present in your conversation context (see the orchestrator command's "Session id capture and propagation" section for the matching rule), substitute that value for every `<DP_SESSION_ID>` placeholder in the bun commands below. If the line is not in context, drop the `--session "<DP_SESSION_ID>"` argument entirely; `advance.ts` falls back to `process.env.DP_SESSION_ID`.
+
 ### 1. Mark running
 
 ```
-bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.implementation.status running
+bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.implementation.status running --session "<DP_SESSION_ID>"
 ```
 
 ### 2. Generate todos from `plan.md`
@@ -51,6 +53,12 @@ Work each todo to completion. Make changes via `Edit` / `Write`.
 
 - **No `: any` annotations.** Use a precise type, `unknown` + a narrowing check, or a generic. If you genuinely cannot infer the right type, stop and ask the user via `AskUserQuestion` (skip if `autonomous`).
 - **No bare `as <Type>` casts.** Prefer `satisfies`. If a cast is genuinely necessary (rare), append `// safe-cast: <one-line reason>` to the same line. Static-analysis enforcement is the responsibility of the project's lint config — if the project doesn't lint these, suggest adding rules (`@typescript-eslint/no-explicit-any`, `@typescript-eslint/consistent-type-assertions`) and ask the user once whether to add them.
+- **Comments must justify themselves at commit time.** Before adding any comment, ask: "is this useful for someone reading the commit weeks later, who has no idea about my plan or this conversation?" If the answer is no, don't write it. Concrete rules:
+  - **NEVER reference the plan, the pipeline run, the review, or this conversation in code comments.** No "per the plan", no "added in plan-improve", no "as discussed", no "Phase N", no "based on investigation", etc.
+  - **NEVER duplicate what the code already says.** If a comment paraphrases the next line, delete it. Well-named identifiers are the documentation. Code should be clean and selfdocumented. Better create new var that with name explains code, than a comment that explain a messy code.
+  - **NEVER add obvious comments** ("increment the counter", "loop over items", "set the status to running", "create 5 users" etc.). If the code is obvious, no comment is needed.
+  - **If you feel the urge to comment because the code is unclear, fix the code instead.** Extract a variable with a descriptive name. Rename a misleading symbol. Split a too-clever expression. A new local variable named `effectiveSessionId` beats a comment explaining what `id ?? fallback ?? null` means.
+  - **Good comments explain WHY, not WHAT.** Reserve them for: non-obvious invariants, hidden constraints from elsewhere in the system, intentional deviations from the obvious approach, workarounds for known bugs in external code, or surprising consequences that would make a reader pause. The default should be no comment; comment only when omitting it would mislead a future reader.
 
 ### 4. Run typecheck and lint
 
@@ -68,7 +76,7 @@ If errors appear: fix them in place, then re-run. Loop until both pass clean.
 Only after both typecheck and lint exit zero with no errors:
 
 ```
-bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.implementation.checksPassed true
+bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.implementation.checksPassed true --session "<DP_SESSION_ID>"
 ```
 
 If you skip this, the plugin-wide Stop hook will block your next response with a corrective message — fix it and try again.
@@ -76,7 +84,7 @@ If you skip this, the plugin-wide Stop hook will block your next response with a
 ### 6. Advance
 
 ```
-bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts advance <RUN_DIR> implementation
+bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts advance <RUN_DIR> implementation --session "<DP_SESSION_ID>"
 ```
 
 ### 7. Hand off — INVOKE `dp:codereview`, do not text-stop
