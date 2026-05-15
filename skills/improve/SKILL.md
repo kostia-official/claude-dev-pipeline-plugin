@@ -20,24 +20,25 @@ Self-modifying meta-skill. Lets the plugin author iterate on this plugin from in
 ## Inputs
 
 - `$ARGUMENTS` — free-text feedback (e.g. "make `dp:plan-proposal` ask about scope before approach", "add a section to `dp:investigation` for external dependencies").
-- `${CLAUDE_PLUGIN_ROOT}` — always set when this skill runs; points to the plugin source.
+- `${DP_PLUGIN_ROOT}` — always set when this skill runs; points to the plugin source.
 
 ## Procedure
 
 ### 1. Resolve and validate the plugin source path
 
-- Read `${CLAUDE_PLUGIN_ROOT}`.
-- If the path contains `/.claude/plugins/cache/` → **REFUSE** with this exact message and stop:
+- Read `${DP_PLUGIN_ROOT}`.
+- If the path contains `/.claude/plugins/cache/` OR `/.cursor/plugins/cache/` → **REFUSE** with this exact message and stop:
 
-  > `dp:improve` cannot run against a marketplace-installed plugin: `${CLAUDE_PLUGIN_ROOT}` is in the plugin cache, and any edits would be overwritten the next time the marketplace catalog is refreshed (`/plugin marketplace update <marketplace>` + `/reload-plugins`).
+  > `dp:improve` cannot run against a marketplace-installed plugin: `${DP_PLUGIN_ROOT}` is in the plugin cache, and any edits would be overwritten the next time the marketplace catalog is refreshed.
   >
   > To work on the plugin:
   >   1. Fork or clone `git@github.com:kostia-official/claude-dev-pipeline-plugin.git` to a local directory (e.g. `~/projects/claude-dev-pipeline-plugin/`).
-  >   2. Either run Claude Code with `claude --plugin-dir <local-clone>`, or `/plugin install <local-clone>`.
-  >   3. Re-run `/dp:improve <your feedback>`.
+  >   2. **On Claude Code**: run with `claude --plugin-dir <local-clone>`, or `/plugin install <local-clone>`.
+  >   3. **On Cursor**: in the IDE settings, point Cursor's plugin source at the local clone (Dashboard → Plugins → Local Sources → Add).
+  >   4. Re-run `/dp:improve <your feedback>` (Claude Code) or `/improve <your feedback>` (Cursor).
 
-- Otherwise confirm with `git -C ${CLAUDE_PLUGIN_ROOT} rev-parse --show-toplevel` that the directory is a git repo. If not, refuse and tell the user the plugin source must be a git repo.
-- Check `git -C ${CLAUDE_PLUGIN_ROOT} status --porcelain` for uncommitted changes inside the plugin tree. If any exist, REFUSE: tell the user to commit or stash those changes first so the auto-commit doesn't pull in unrelated work. Allow override only via explicit `AskUserQuestion` confirmation.
+- Otherwise confirm with `git -C ${DP_PLUGIN_ROOT} rev-parse --show-toplevel` that the directory is a git repo. If not, refuse and tell the user the plugin source must be a git repo.
+- Check `git -C ${DP_PLUGIN_ROOT} status --porcelain` for uncommitted changes inside the plugin tree. If any exist, REFUSE: tell the user to commit or stash those changes first so the auto-commit doesn't pull in unrelated work. Allow override only via explicit `AskUserQuestion` confirmation.
 
 ### 2. Understand the request
 
@@ -52,8 +53,12 @@ Map intent to one of:
 - `scripts/lib/*.ts` — for state/findRun helper changes.
 - `scripts/cli/*.ts` — for state CLI helper changes.
 - `scripts/hooks/*.ts` — for hook behavior changes.
-- `.claude-plugin/plugin.json` — for manifest changes (NB: version is bumped in step 6, not via this path).
-- `.claude-plugin/marketplace.json` — for marketplace metadata.
+- `.claude-plugin/plugin.json` — for Claude Code manifest changes (NB: version is bumped in step 6, not via this path).
+- `.claude-plugin/marketplace.json` — for Claude Code marketplace metadata.
+- `.cursor-plugin/plugin.json` — for Cursor manifest changes (NB: version is bumped in step 6 in lockstep with the Claude Code manifest).
+- `.cursor-plugin/marketplace.json` — for Cursor marketplace metadata.
+- `hooks/hooks.json` — for Claude Code hook config.
+- `hooks/cursor-hooks.json` — for Cursor hook config.
 - `README.md` — for documentation changes.
 
 When multiple files plausibly match, list them with the suggested edit summary and ask `AskUserQuestion`: which to apply? Include "All of them" if appropriate.
@@ -79,24 +84,34 @@ Then ask `AskUserQuestion`:
 
 Use `Edit` (or `Write` for new files).
 
-### 6. Bump version
+### 6. Bump version — all 4 manifests in lockstep
 
-Read `version` from `.claude-plugin/plugin.json`. Default bump is **PATCH** (`X.Y.Z → X.Y.(Z+1)`).
+The plugin ships TWO platform manifests, each with its own `plugin.json` and `marketplace.json`. All four version fields MUST stay in lockstep.
+
+Read the current version from `.claude-plugin/plugin.json`. Verify the other three files (`.claude-plugin/marketplace.json` top-level AND inside `plugins[0]`, `.cursor-plugin/plugin.json`, `.cursor-plugin/marketplace.json` top-level AND inside `plugins[0]`) all carry the same version. If ANY are out of sync, REFUSE and tell the user to manually align them first — silent drift means one platform shipped a different feature set than the other and the auto-bump would entrench that.
+
+Default bump is **PATCH** (`X.Y.Z → X.Y.(Z+1)`).
 
 If the change matches "substantive" heuristics, ask `AskUserQuestion` with options PATCH / MINOR / MAJOR:
 
-- **MINOR**: added a new skill, added a new orchestrator capability, added a new state.json field that's optional.
-- **MAJOR**: removed/renamed an existing skill, changed `state.json` schema in a non-additive way, changed a hook contract, changed the `/dp:dev-pipeline` argument classifier in an incompatible way.
+- **MINOR**: added a new skill, added a new orchestrator capability, added a new state.json field that's optional, added a new platform target.
+- **MAJOR**: removed/renamed an existing skill, changed `state.json` schema in a non-additive way, changed a hook contract, changed the orchestrator's argument classifier in an incompatible way.
 
-Write the new version back into `.claude-plugin/plugin.json`. Also update `.claude-plugin/marketplace.json`'s `version` field to match.
+Write the new version back into ALL of:
+- `.claude-plugin/plugin.json` (`version`)
+- `.claude-plugin/marketplace.json` (`version` AND `plugins[0].version`)
+- `.cursor-plugin/plugin.json` (`version`)
+- `.cursor-plugin/marketplace.json` (`metadata.version`)
+
+After writing, re-read all four and confirm they match the new version before proceeding to commit.
 
 ### 7. Commit
 
 Run:
 
 ```
-git -C ${CLAUDE_PLUGIN_ROOT} add <list of files you actually modified>
-git -C ${CLAUDE_PLUGIN_ROOT} commit -m "$(cat <<'EOF'
+git -C ${DP_PLUGIN_ROOT} add <list of files you actually modified>
+git -C ${DP_PLUGIN_ROOT} commit -m "$(cat <<'EOF'
 dp:improve — <one-line summary>
 
 <original $ARGUMENTS, indented or quoted>
@@ -129,7 +144,7 @@ The change is also live in *this* session already (Claude Code watches plugin di
 
 ## Guardrails (recap)
 
-- Refuse when `${CLAUDE_PLUGIN_ROOT}` is under `~/.claude/plugins/cache/`.
+- Refuse when `${DP_PLUGIN_ROOT}` is under `~/.claude/plugins/cache/` OR `~/.cursor/plugins/cache/`.
 - Refuse on dirty git tree inside the plugin (unless user explicitly overrides).
 - Never edit files outside the plugin tree (no consumer-project files, no `~/.claude/` outside the plugin).
 - Never auto-push.

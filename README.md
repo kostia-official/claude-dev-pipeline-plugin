@@ -9,7 +9,7 @@ investigation → plan-proposal → plan → plan-improve → plan-improve-apply
 
 State lives in your project at `.claude/feature-pipeline/<feature>/`. Artifacts (`context.md`, `plan.md`, `review.md`, `state.json`) are plain files you can read, diff, and commit.
 
-## Quick start (end users)
+## Quick start — Claude Code
 
 ```
 /plugin marketplace add kostia-official/claude-dev-pipeline-plugin
@@ -39,16 +39,44 @@ To upgrade later:
 /reload-plugins
 ```
 
+## Quick start — Cursor 2.6+
+
+In Cursor: **Dashboard → Settings → Plugins → Team Marketplaces → Import** → paste:
+
+```
+https://github.com/kostia-official/claude-dev-pipeline-plugin
+```
+
+Review the parsed plugins, install `dp`, then restart Cursor.
+
+In Agent chat, start a run with the orchestrator slash command (the exact name Cursor surfaces from `commands/dev-pipeline.md` may be `/dev-pipeline` or `/dp-dev-pipeline` depending on Cursor's command-naming rules — check the `/` menu after install):
+
+```
+/dev-pipeline rewrite auth to use refresh tokens
+```
+
+The pipeline works the same way as on Claude Code: state lives in `.claude/feature-pipeline/<feature>/`, artifacts are the same plain files. Step chaining is implemented via Cursor's `stop`-hook `followup_message` instead of Claude Code's `Skill` tool — functionally equivalent, but the model is *nudged* into the next step (auto-submitted follow-up turn) rather than *blocked* from stopping. The pipeline can still be derailed if you interrupt it mid-flight; manually invoke `/<next-step>` to recover.
+
+### Differences from Claude Code
+
+| Behavior | Claude Code | Cursor |
+|---|---|---|
+| Step chaining | `Skill(skill_name = "dp:<next>")` tool call | `stop` hook returns `followup_message: "Invoke /<next> now."` auto-submitted as next turn |
+| Stop-hook enforcement | Hard block (`decision: "block"`) | Soft auto-prompt; loop cap raised to `null` for 8-step chains |
+| Slash namespace | `/dp:<skill>` (plugin-prefixed) | `/<skill>` (flat, e.g. `/investigation`) |
+| `dp:codereview` review | Invokes `/simplify` skill | Inline three-lens review (`/simplify` is Claude-Code-only) |
+| Session-id propagation | `additionalContext` + `CLAUDE_ENV_FILE` append | `sessionStart` hook's `env` field (propagates to all subsequent hooks) |
+
 ### Soft dependency
 
-`dp:codereview` wraps `/simplify` from Anthropic's official `code-simplifier` plugin. If you don't have it:
+`dp:codereview` wraps `/simplify` from Anthropic's official `code-simplifier` plugin **on Claude Code**. If you don't have it:
 
 ```
 /plugin marketplace add anthropics/claude-plugins-official
 /plugin install code-simplifier
 ```
 
-If you skip this, `dp:codereview` falls back to running the simplification review itself.
+If you skip this, `dp:codereview` falls back to running the simplification review itself. On Cursor this is the default — no `/simplify` install needed.
 
 ### Runtime prerequisite
 
@@ -140,31 +168,85 @@ End users update via:
 v0.5.0 introduces session scoping (see "Session scoping" above). Two upgrade caveats:
 
 - **SessionStart hooks fire only on session start.** After running `/plugin marketplace update` + `/reload-plugins` in an *existing* conversation, the new hook code is loaded but the SessionStart hook does NOT fire retroactively — so `DP_SESSION_ID` is not in the current conversation's context, and `process.env.DP_SESSION_ID` is also empty (the env-var write happens in the hook, which never ran for this session). Any `/dp:dev-pipeline` run started in this stale conversation will be created **without** a sessionId tag. To get the fix, **start a fresh Claude Code session in the project** before starting your next pipeline run.
-- **Existing active runs from before the upgrade have no sessionId.** They will be adopted on first interaction (tag-on-touch). If two old sessions both reference such a run, only the first to interact with it claims it. If you have a stale `active: true` run you don't intend to resume, run `bun ~/projects/claude-dev-pipeline-plugin/scripts/cli/advance.ts abort <run-dir>` to mark it inert.
+- **Existing active runs from before the upgrade have no sessionId.** They will be adopted on first interaction (tag-on-touch). If two old sessions both reference such a run, only the first to interact with it claims it. If you have a stale `active: true` run you don't intend to resume, run `bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts abort <run-dir>` to mark it inert.
+
+### Upgrading from v0.5.x to v0.6.0
+
+v0.6.0 adds Cursor support and is additive — **no action needed for existing Claude Code users**. Run `/plugin marketplace update claude-dev-pipeline-plugin` + `/reload-plugins` and the existing `/dp:dev-pipeline` workflow keeps working.
+
+Two new mechanisms ship under the hood:
+
+- **`DP_PLUGIN_ROOT` env var** replaces `${CLAUDE_PLUGIN_ROOT}` in all skill bodies and the orchestrator command. The SessionStart hook on both platforms exports it. The same caveat as v0.5 applies: SessionStart hooks fire only on session start, so existing conversations need a fresh session before `${DP_PLUGIN_ROOT}` resolves in skill commands.
+- **Split hook config files**. `hooks/hooks.json` (Claude Code, unchanged from v0.5) and new `hooks/cursor-hooks.json` (Cursor). Each platform reads only its own file via its respective manifest.
+
+Cursor users follow the **Quick start — Cursor 2.6+** section above to add the new platform.
+
+### Diagnostic logs
+
+Every hook and `advance.ts` invocation appends a single NDJSON line to **`/tmp/dp-logs/<YYYY-MM-DD>.ndjson`** AND mirrors it to stderr. Logging is best-effort — failures inside the logger are silently swallowed so they never break a hook.
+
+**Live in your IDE.** Each line goes to stderr prefixed with `[dp] {...}`. Claude Code's VSCode extension captures it in **Output → "Claude Code"**; Cursor captures it in **Output → "Cursor Agent"**. Pop the panel open and you see every dp hook fire in real time.
+
+**Persistent file**:
+
+```
+bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts logs
+# prints: /tmp/dp-logs/2026-05-15.ndjson
+
+tail -f $(bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts logs) | jq -c
+```
+
+What gets logged:
+
+- **SessionStart hook** (`capture-session.ts`): platform detected, session id, plugin root, state dir resolved.
+- **Stop hook** (`enforce-pipeline-progress.ts`): platform, run dir, gate decision (`pending-step` / `checks-not-passed` / `no-gate-needed`), step name.
+- **`advance.ts` subcommands**: only failures, via the uncaught-exception handler. Successful invocations are silent to keep the file small.
+
+`/tmp/dp-logs/` is single-machine, no per-project pollution, auto-cleaned on reboot.
+
+### Upgrading from v0.6.x to v0.7.0
+
+v0.7.0 fixes a Cursor-only bug where the state directory was hardcoded to `.claude/feature-pipeline/`. On Cursor, runs now live under `.cursor/feature-pipeline/` instead. Claude Code users are unaffected — state still lives at `.claude/feature-pipeline/`.
+
+Three mechanisms ship together:
+
+- **`DP_STATE_DIR` env var** is now exported by the SessionStart hook: `.claude` on Claude Code, `.cursor` on Cursor. All path resolution happens inside `advance.ts` which reads this var; skill bodies and the orchestrator no longer hardcode either prefix.
+- **`advance.ts` now accepts slugs**, not full run-dir paths. Old signature: `advance.ts set <run-dir> <path> <value>`. New signature: `advance.ts set <slug> <path> <value>`. Absolute paths (e.g. for explicit-resume by path) are still accepted — the script detects path-style by the presence of `/` or `~`.
+- **New `advance.ts runpath <slug>` subcommand** prints the project-relative run path (e.g. `.cursor/feature-pipeline/foo`) — use it whenever you need to construct a clickable markdown link.
+
+**Migrating active runs from v0.6.0 on Cursor**: any active runs that were created under `.claude/feature-pipeline/` while running on Cursor are now orphaned (the new `findRun.ts` walks the platform-specific dir). To rescue them, manually `mv .claude/feature-pipeline/<run> .cursor/feature-pipeline/`. Claude Code runs need no migration.
+
+**Same upgrade caveat as v0.5/v0.6**: SessionStart hooks fire only on session start. After `/plugin marketplace update` + `/reload-plugins`, existing conversations have an empty `${DP_STATE_DIR}` until the next fresh session. The script defaults to `.claude` when unset — safe on Claude Code, wrong on Cursor. Restart the Cursor session to pick up the new env var.
 
 ## File layout
 
 ```
 claude-dev-pipeline-plugin/
-├── .claude-plugin/
+├── .claude-plugin/                # Claude Code manifests
+│   ├── plugin.json
+│   └── marketplace.json
+├── .cursor-plugin/                # Cursor manifests (v0.6.0+)
 │   ├── plugin.json
 │   └── marketplace.json
 ├── commands/
-│   └── dev-pipeline.md          # /dp:dev-pipeline
-├── skills/
+│   └── dev-pipeline.md            # orchestrator (used by both platforms)
+├── hooks/
+│   ├── hooks.json                 # Claude Code event config (PascalCase)
+│   └── cursor-hooks.json          # Cursor event config (camelCase, v0.6.0+)
+├── skills/                        # shared across platforms
 │   ├── investigation/SKILL.md
 │   ├── plan-proposal/SKILL.md
 │   ├── plan/SKILL.md
 │   ├── plan-improve/SKILL.md
 │   ├── plan-improve-apply/SKILL.md
 │   ├── plan-wrapup/SKILL.md
-│   ├── implementation/SKILL.md  # ships skill-scoped hooks
+│   ├── implementation/SKILL.md
 │   ├── codereview/SKILL.md
 │   └── improve/SKILL.md
 ├── scripts/
-│   ├── lib/{state.ts,findRun.ts}
+│   ├── lib/{state.ts,findRun.ts,hookSession.ts,sessionArgs.ts,hookPlatform.ts}
 │   ├── cli/{advance.ts,status.ts}
-│   └── hooks/enforce-final-checks.ts
+│   └── hooks/{capture-session.ts,enforce-pipeline-progress.ts}
 └── README.md
 ```
 

@@ -1,6 +1,7 @@
 import { join, dirname, resolve } from "node:path";
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { readState, type PipelineState } from "./state.ts";
+import { resolveStateDir } from "./hookSession.ts";
 
 export interface ActiveRun {
   runDir: string;
@@ -8,9 +9,10 @@ export interface ActiveRun {
 }
 
 export function findFeaturePipelineDir(startDir: string): string | null {
+  const stateDir = resolveStateDir();
   let dir = resolve(startDir);
   while (true) {
-    const candidate = join(dir, ".claude", "feature-pipeline");
+    const candidate = join(dir, stateDir, "feature-pipeline");
     if (existsSync(candidate) && statSync(candidate).isDirectory()) {
       return candidate;
     }
@@ -36,9 +38,6 @@ export async function findActiveRun(
     try {
       const state = await readState(runDir);
       if (!state.active) continue;
-      // Session filter: when current session id is known, hide runs that
-      // are owned by a different session. Untagged (legacy) runs remain
-      // visible — they get adopted via tag-on-touch in advance.ts.
       if (currentSessionId && state.sessionId && state.sessionId !== currentSessionId) {
         continue;
       }

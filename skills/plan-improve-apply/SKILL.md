@@ -30,7 +30,7 @@ If `review.md` says `No issues found.`, skip to step 5 (advance) and hand off.
 ### 1. Mark running
 
 ```
-bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.plan-improve-apply.status running --session "<DP_SESSION_ID>"
+bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.plan-improve-apply.status running --session "<DP_SESSION_ID>"
 ```
 
 ### 2. Original `/plan-improve-apply` discipline (verbatim — follow exactly)
@@ -64,21 +64,23 @@ Re-read the entire `plan.md`. Look for contradictions between sections that may 
 ### 5. Mark done and advance
 
 ```
-bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts advance <RUN_DIR> plan-improve-apply --session "<DP_SESSION_ID>"
+bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts advance <RUN_DIR> plan-improve-apply --session "<DP_SESSION_ID>"
 ```
 
-### 6. Hand off — INVOKE `dp:plan-wrapup`, do not text-stop
+### 6. Hand off to `dp:plan-wrapup` — do not text-stop
 
-The plugin's Stop hook will block your turn while `steps.plan-wrapup.status === "pending"`. Your very next action must be:
+The plugin's Stop hook gates progression on Claude Code (hard block while `steps.plan-wrapup.status === "pending"`) and auto-prompts the next skill on Cursor (soft auto-submit). Either way, advancing state.json correctly is mandatory.
+
+Print a one-liner first, referencing the patched `plan.md` as a **markdown link**:
+
+```
+Review fixes applied — open [plan.md](${DP_STATE_DIR}/feature-pipeline/<feature>/plan.md). Finalizing now.
+```
+
+**On Claude Code**: your very next action MUST be a Skill-tool invocation in this same turn:
 
 ```
 Skill(skill_name = "dp:plan-wrapup")
 ```
 
-Before the Skill invocation, print a one-liner referencing the patched `plan.md` as a **markdown link** so the user can click to open it. Compute the relative path from cwd:
-
-```
-Review fixes applied — open [plan.md](.claude/feature-pipeline/<feature>/plan.md). Finalizing now.
-```
-
-The Skill invocation MUST still happen in this same turn.
+**On Cursor**: there is no Skill tool — end your turn after the one-liner above. The plugin's `stop` hook will auto-submit `/plan-wrapup` as a follow-up turn, triggering the next skill via slash-prefix auto-discovery.

@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": "bun ./scripts/hooks/capture-session.ts"
+      }
+    ],
+    "stop": [
+      {
+        "command": "bun ./scripts/hooks/enforce-pipeline-progress.ts",
+        "loop_limit": null
+      }
+    ]
+  }
+}

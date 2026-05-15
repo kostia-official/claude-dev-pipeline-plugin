@@ -1,0 +1,50 @@
+{
+  "name": "cursor-port",
+  "createdAt": "2026-05-14T12:04:57.243Z",
+  "updatedAt": "2026-05-14T13:37:49.463Z",
+  "active": false,
+  "autonomous": false,
+  "currentStep": "done",
+  "steps": {
+    "investigation": {
+      "status": "done",
+      "artifact": "context.md",
+      "completedAt": "2026-05-14T12:07:58.995Z"
+    },
+    "plan-proposal": {
+      "status": "done",
+      "approvalMode": "yes",
+      "approvedAt": "2026-05-14T12:10:50Z",
+      "completedAt": "2026-05-14T12:10:50.918Z"
+    },
+    "plan": {
+      "status": "done",
+      "artifact": "plan.md",
+      "completedAt": "2026-05-14T12:14:13.678Z"
+    },
+    "plan-improve": {
+      "status": "done",
+      "artifact": "review.md",
+      "completedAt": "2026-05-14T12:17:13.323Z"
+    },
+    "plan-improve-apply": {
+      "status": "done",
+      "completedAt": "2026-05-14T12:57:41.742Z"
+    },
+    "plan-wrapup": {
+      "status": "done",
+      "completedAt": "2026-05-14T13:22:35.707Z"
+    },
+    "implementation": {
+      "status": "done",
+      "checksPassed": true,
+      "completedAt": "2026-05-14T13:34:09.640Z"
+    },
+    "codereview": {
+      "status": "done",
+      "completedAt": "2026-05-14T13:37:49.463Z"
+    }
+  },
+  "args": "Port the dp plugin to a Cursor-native version: add .cursor-plugin manifests, port hooks (sessionStart, stop with followup_message), replace Skill-tool chaining with stop-hook auto-prompt, ship installable in Cursor 2.5+ marketplace.",
+  "sessionId": "d4380475-1853-48f5-9338-64bfc11ecf85"
+}

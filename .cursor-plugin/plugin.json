@@ -1,0 +1,24 @@
+{
+  "name": "dp",
+  "displayName": "Dev Pipeline",
+  "version": "0.7.0",
+  "description": "Feature-planning pipeline for Cursor: investigation → proposal → plan → review → implementation → codereview, with persistent state and a stop-hook workflow gate.",
+  "author": {
+    "name": "kostia-official",
+    "url": "https://github.com/kostia-official"
+  },
+  "homepage": "https://github.com/kostia-official/claude-dev-pipeline-plugin",
+  "repository": "https://github.com/kostia-official/claude-dev-pipeline-plugin",
+  "license": "MIT",
+  "keywords": [
+    "planning",
+    "pipeline",
+    "tdd",
+    "workflow",
+    "feature-development"
+  ],
+  "category": "developer-tools",
+  "skills": "./skills/",
+  "commands": "./commands/",
+  "hooks": "./hooks/cursor-hooks.json"
+}

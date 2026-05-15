@@ -26,7 +26,7 @@ Short proposal, fast user feedback. **No `plan.md` is written at this stage.** T
 ### 1. Mark step as running
 
 ```
-bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.plan-proposal.status running --session "<DP_SESSION_ID>"
+bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.plan-proposal.status running --session "<DP_SESSION_ID>"
 ```
 
 ### No shortcuts — always propose the thorough solution
@@ -95,11 +95,41 @@ For bug fixes: the diagnosis already lives in 1.5; bullets here are purely the f
 
 - **Bullet list.** One distinct point per bullet. No prose paragraphs. No headers, no nested sub-bullets unless absolutely required.
 - **One idea per bullet.** Do not bundle two ideas into one bullet just because they relate. When in doubt, split.
-- **No fixed count.** Include every key point the user needs to evaluate the plan. If there are 8 distinct points, write 8 bullets. Never drop a key detail to hit a length target.
+- **Order bullets by importance, biggest first.** The first 2–4 bullets must capture the **load-bearing changes** — the new behavior, new model, scope shift, the thing that justifies the work existing. Mechanical follow-ons (file renames, symbol renames, type renames, README touch-ups, cron-entry updates, dispatch-table edits) belong **at the end**. If a bullet is purely a mechanical consequence of an earlier bullet, demote it. If a bullet only matters to someone reading the file diff, **cut it from the proposal entirely** — it'll surface in `plan.md`'s file-by-file section. The user reviews the proposal to redirect approach; renames are not approach.
+- **No fixed count.** Include every key point the user needs to evaluate the plan. If there are 8 distinct points, write 8 bullets. Never drop a key detail to hit a length target. But: the *count* doesn't include trivial mechanical changes — those don't belong in the proposal at all.
 - **No bloat.** Each bullet carries new information. No padding, no restating section 1, no "as mentioned above". Delete any bullet that doesn't add a key point.
 - Each bullet is 1–3 lines. If it wraps past three lines, you're packing implementation detail in — that belongs in `plan.md`, not the proposal.
 - **Last bullet is always "Out of scope: …"** listing what's intentionally not part of this plan.
 - Describes **what you'll do** and the user-visible behavior change. For bug fixes, the diagnosis is in 1.5 — bullets here are purely the fix.
+
+**Anti-example — load-bearing changes buried, renames upfront:**
+
+> ### 2. Plan proposal
+> - Rename file `data-updaters/update-orientation-invites.ts` → `data-updaters/update-worker-invites.ts`; rename function `updateOrientationInvites` → `updateWorkerInvites`; rename cleanup helper `cleanupCompanyOrientationInvites` → `cleanupCompanyWorkerInvites`.
+> - Rename config file `configs/orientation-invites.config.ts` → `configs/worker-invites.config.ts`; rename export `orientationInvitesConfig` → `workerInvitesConfig`.
+> - Replace config shape entirely: drop `invitesPerSite` and `statusWeights`; add `workersPerStatus: { min: 2, max: 6 }`.
+> - Rename EntityType `orientationInvite` → `workerInvite` in `types.ts`; update dispatch entry, CLI parser, cron entry, README table.
+> - Roll per-bucket count via `faker.number.int(...)` four times per site; partition into 4 sub-cohorts.
+> - Extend pool blacklist to also exclude workers with any live `EmployeeInvite`.
+> - New per-site block creates `EmployeeInvite.INITIAL` rows with `expireAt = faker.date.soon({days:30})`.
+> - Same block creates `EmployeeInvite.EXPIRED` rows with past `expireAt` — bypasses cron.
+> - Add `EmployeeInvite` model to `prisma/schema.prisma`.
+> - Add `selfOnboarding: true` site-settings flip.
+> - Memoize `SubcontractorAssignment.id` lookups per site to avoid N+1.
+
+That proposal is unreadable because the first thing the user sees is `update-orientation-invites.ts → update-worker-invites.ts`. They have no idea what the *feature* is until bullet 3 ("replace config shape entirely") and bullet 7 (new `EmployeeInvite` rows). Reordered:
+
+> ### 2. Plan proposal
+> - Replace `invitesPerSite` + `statusWeights` config shape with a single `workersPerStatus: { min: 2, max: 6 }` range, applied symmetrically across all 4 buckets.
+> - Roll bucket size 4× per site, draw one inactive-worker pool sized to the sum, partition into 4 sub-cohorts (no cross-bucket overlap).
+> - Seed `EmployeeInvite.INITIAL` rows per site (live, `expireAt = soon(30d)`) and `EmployeeInvite.EXPIRED` rows (terminal, past `expireAt`) — the EXPIRED branch bypasses the daily cron by writing the terminal state directly.
+> - Extend the worker-pool blacklist to also exclude anyone with a live `EmployeeInvite` (INITIAL/PENDING).
+> - Add `selfOnboarding: true` site-settings flip alongside the existing `selfSignOrientation: true` so the prod `sendEmployeeInvite` resolver precondition is satisfied.
+> - Add `EmployeeInvite` model to `prisma/schema.prisma`; cleanup helper's `:force` path now wipes the old shape.
+> - Mechanical: rename `orientation-invites` → `worker-invites` across file paths, exports, types, EntityType enum, dispatch entry, CLI parser, cron entry, README table.
+> - Out of scope: PENDING/APPROVED/QR_INITIAL statuses, lifecycle transitions, non-US localization, renaming `show-orientation-invite-links.ts` (still tied to a separate flow).
+
+Same scope; the user can stop reading at bullet 1 and already know what changed.
 
 **Anti-example for a bug fix — section 2 written as prose, root cause missing:**
 
@@ -169,7 +199,7 @@ Use `AskUserQuestion`:
 ### 4. Handle the answer
 
 - **Yes**: continue to step 5.
-- **Yes — Autonomous**: also run `bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> autonomous true`. Continue. --session "<DP_SESSION_ID>"
+- **Yes — Autonomous**: also run `bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> autonomous true`. Continue. --session "<DP_SESSION_ID>"
 - **Other / free-text feedback** — this is a **dialog**, not a command queue. Do NOT silently apply the feedback and reprint. Procedure:
 
   1. **Carefully re-read** the feedback. Treat every word as intentional.
@@ -196,18 +226,22 @@ Use `AskUserQuestion`:
 Record the approval mode and advance:
 
 ```
-bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.plan-proposal.approvalMode '"yes"' --session "<DP_SESSION_ID>"
+bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.plan-proposal.approvalMode '"yes"' --session "<DP_SESSION_ID>"
 # or '"yes-autonomous"' if option 2 was chosen
-bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.plan-proposal.approvedAt '"<ISO timestamp>"' --session "<DP_SESSION_ID>"
-bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts advance <RUN_DIR> plan-proposal --session "<DP_SESSION_ID>"
+bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.plan-proposal.approvedAt '"<ISO timestamp>"' --session "<DP_SESSION_ID>"
+bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts advance <RUN_DIR> plan-proposal --session "<DP_SESSION_ID>"
 ```
 
-### 6. Hand off — INVOKE `dp:plan`, do not text-stop
+### 6. Hand off to `dp:plan` — do not text-stop
 
-The plugin's Stop hook will block your turn while `steps.plan.status === "pending"`. Your very next action must be:
+The plugin's Stop hook gates progression on Claude Code (hard block while `steps.plan.status === "pending"`) and auto-prompts the next skill on Cursor (soft auto-submit). Either way, advancing state.json correctly is mandatory.
+
+Print a one-liner first: "Proposal approved — drafting the detailed plan now."
+
+**On Claude Code**: your very next action MUST be a Skill-tool invocation in this same turn:
 
 ```
 Skill(skill_name = "dp:plan")
 ```
 
-A one-line "Proposal approved — drafting the detailed plan now." is fine before the call, but the Skill invocation MUST happen in this same turn.
+**On Cursor**: there is no Skill tool — end your turn after the one-liner. The plugin's `stop` hook will auto-submit `/plan` as a follow-up turn, triggering the next skill via slash-prefix auto-discovery.

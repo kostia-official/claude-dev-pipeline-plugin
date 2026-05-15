@@ -26,7 +26,7 @@ Final sanity pass + user sign-off on `plan.md` before implementation begins.
 ### 1. Mark running
 
 ```
-bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.plan-wrapup.status running --session "<DP_SESSION_ID>"
+bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.plan-wrapup.status running --session "<DP_SESSION_ID>"
 ```
 
 ### 2. Re-read `plan.md` end to end
@@ -71,7 +71,7 @@ Changes since proposal:
 - **Reject**:
   1. Set `state.json.active = false` via:
      ```
-     bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts abort <RUN_DIR> --session "<DP_SESSION_ID>"
+     bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts abort <RUN_DIR> --session "<DP_SESSION_ID>"
      ```
   2. Tell the user: pipeline aborted; artifacts preserved at `<RUN_DIR>` for inspection.
   3. Stop.
@@ -79,21 +79,23 @@ Changes since proposal:
 ### 6. Advance
 
 ```
-bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts advance <RUN_DIR> plan-wrapup --session "<DP_SESSION_ID>"
+bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts advance <RUN_DIR> plan-wrapup --session "<DP_SESSION_ID>"
 ```
 
-### 7. Hand off — INVOKE `dp:implementation`, do not text-stop
+### 7. Hand off to `dp:implementation` — do not text-stop
 
-The plugin's Stop hook will block your turn while `steps.implementation.status === "pending"`. Your very next action must be:
+The plugin's Stop hook gates progression on Claude Code (hard block while `steps.implementation.status === "pending"`) and auto-prompts the next skill on Cursor (soft auto-submit). Either way, advancing state.json correctly is mandatory.
+
+Print a one-liner first, referencing the approved `plan.md` as a **markdown link**:
+
+```
+Plan approved — see [plan.md](${DP_STATE_DIR}/feature-pipeline/<feature>/plan.md). Starting implementation now.
+```
+
+**On Claude Code**: your very next action MUST be a Skill-tool invocation in this same turn:
 
 ```
 Skill(skill_name = "dp:implementation")
 ```
 
-Before the Skill invocation, print a one-liner referencing the approved `plan.md` as a **markdown link** so the user can click back to it during implementation:
-
-```
-Plan approved — see [plan.md](.claude/feature-pipeline/<feature>/plan.md). Starting implementation now.
-```
-
-The Skill invocation MUST still happen in this same turn.
+**On Cursor**: there is no Skill tool — end your turn after the one-liner above. The plugin's `stop` hook will auto-submit `/implementation` as a follow-up turn, triggering the next skill via slash-prefix auto-discovery.

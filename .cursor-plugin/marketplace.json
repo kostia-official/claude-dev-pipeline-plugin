@@ -1,0 +1,20 @@
+{
+  "name": "claude-dev-pipeline-plugin",
+  "owner": {
+    "name": "kostia-official",
+    "email": "",
+    "url": "https://github.com/kostia-official"
+  },
+  "metadata": {
+    "description": "Cursor marketplace for the dp (dev-pipeline) plugin",
+    "version": "0.7.0",
+    "pluginRoot": "."
+  },
+  "plugins": [
+    {
+      "name": "dp",
+      "source": ".",
+      "description": "Feature-planning pipeline for Cursor: investigation → proposal → plan → review → implementation → codereview, with persistent state and a stop-hook workflow gate."
+    }
+  ]
+}

@@ -26,7 +26,7 @@ Review the plan. **Self-contained**: this skill embeds the original `/plan-impro
 ### 1. Mark running
 
 ```
-bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.plan-improve.status running --session "<DP_SESSION_ID>"
+bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.plan-improve.status running --session "<DP_SESSION_ID>"
 ```
 
 ### 2. Review discipline
@@ -78,22 +78,24 @@ If no issues are found, write a single line: `No issues found.` (still write the
 ### 5. Mark done and advance
 
 ```
-bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.plan-improve.artifact "review.md" --session "<DP_SESSION_ID>"
-bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts advance <RUN_DIR> plan-improve --session "<DP_SESSION_ID>"
+bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.plan-improve.artifact "review.md" --session "<DP_SESSION_ID>"
+bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts advance <RUN_DIR> plan-improve --session "<DP_SESSION_ID>"
 ```
 
-### 6. Hand off — INVOKE `dp:plan-improve-apply`, do not text-stop
+### 6. Hand off to `dp:plan-improve-apply` — do not text-stop
 
-The plugin's Stop hook will block your turn while `steps.plan-improve-apply.status === "pending"`. Your very next action must be:
+The plugin's Stop hook gates progression on Claude Code (hard block while `steps.plan-improve-apply.status === "pending"`) and auto-prompts the next skill on Cursor (soft auto-submit). Either way, advancing state.json correctly is mandatory.
+
+Print a one-liner first, referencing `review.md` as a **markdown link**:
+
+```
+Review written — open [review.md](${DP_STATE_DIR}/feature-pipeline/<feature>/review.md). Applying fixes now.
+```
+
+**On Claude Code**: your very next action MUST be a Skill-tool invocation in this same turn:
 
 ```
 Skill(skill_name = "dp:plan-improve-apply")
 ```
 
-Before the Skill invocation, print a one-liner referencing `review.md` as a **markdown link** so the user can click to open it. Compute the relative path from cwd:
-
-```
-Review written — open [review.md](.claude/feature-pipeline/<feature>/review.md). Applying fixes now.
-```
-
-The Skill invocation MUST still happen in this same turn.
+**On Cursor**: there is no Skill tool — end your turn after the one-liner above. The plugin's `stop` hook will auto-submit `/plan-improve-apply` as a follow-up turn, triggering the next skill via slash-prefix auto-discovery.

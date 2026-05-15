@@ -33,7 +33,7 @@ Implement the approved plan. The plugin's plugin-wide Stop hook (`enforce-pipeli
 ### 1. Mark running
 
 ```
-bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.implementation.status running --session "<DP_SESSION_ID>"
+bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.implementation.status running --session "<DP_SESSION_ID>"
 ```
 
 ### 2. Generate todos from `plan.md`
@@ -76,7 +76,7 @@ If errors appear: fix them in place, then re-run. Loop until both pass clean.
 Only after both typecheck and lint exit zero with no errors:
 
 ```
-bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.implementation.checksPassed true --session "<DP_SESSION_ID>"
+bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.implementation.checksPassed true --session "<DP_SESSION_ID>"
 ```
 
 If you skip this, the plugin-wide Stop hook will block your next response with a corrective message — fix it and try again.
@@ -84,21 +84,23 @@ If you skip this, the plugin-wide Stop hook will block your next response with a
 ### 6. Advance
 
 ```
-bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts advance <RUN_DIR> implementation --session "<DP_SESSION_ID>"
+bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts advance <RUN_DIR> implementation --session "<DP_SESSION_ID>"
 ```
 
-### 7. Hand off — INVOKE `dp:codereview`, do not text-stop
+### 7. Hand off to `dp:codereview` — do not text-stop
 
-The plugin's Stop hook will block your turn while `steps.codereview.status === "pending"`. Your very next action must be:
+The plugin's Stop hook gates progression on Claude Code (hard block while `steps.codereview.status === "pending"`) and auto-prompts the next skill on Cursor (soft auto-submit). Either way, advancing state.json correctly is mandatory.
+
+Print a one-liner first, referencing the run dir as a **markdown link**:
+
+```
+Implementation complete — typecheck + lint pass. Run dir: [${DP_STATE_DIR}/feature-pipeline/<feature>/](${DP_STATE_DIR}/feature-pipeline/<feature>/). Running codereview now.
+```
+
+**On Claude Code**: your very next action MUST be a Skill-tool invocation in this same turn:
 
 ```
 Skill(skill_name = "dp:codereview")
 ```
 
-Before the Skill invocation, print a one-liner referencing the run dir as a **markdown link** (artifacts live there for inspection):
-
-```
-Implementation complete — typecheck + lint pass. Run dir: [.claude/feature-pipeline/<feature>/](.claude/feature-pipeline/<feature>/). Running codereview now.
-```
-
-The Skill invocation MUST still happen in this same turn.
+**On Cursor**: there is no Skill tool — end your turn after the one-liner above. The plugin's `stop` hook will auto-submit `/codereview` as a follow-up turn, triggering the next skill via slash-prefix auto-discovery.

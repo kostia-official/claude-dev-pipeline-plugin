@@ -28,7 +28,7 @@ Write a detailed plan document. The proposal is already approved; now produce a 
 ### 1. Mark running
 
 ```
-bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.plan.status running --session "<DP_SESSION_ID>"
+bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.plan.status running --session "<DP_SESSION_ID>"
 ```
 
 ### 2. Apply built-in plan-mode discipline
@@ -105,22 +105,24 @@ Things you considered but decided not to do, with one-line reasons.
 ### 4. Mark done and advance
 
 ```
-bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.plan.artifact "plan.md" --session "<DP_SESSION_ID>"
-bun ${CLAUDE_PLUGIN_ROOT}/scripts/cli/advance.ts advance <RUN_DIR> plan --session "<DP_SESSION_ID>"
+bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.plan.artifact "plan.md" --session "<DP_SESSION_ID>"
+bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts advance <RUN_DIR> plan --session "<DP_SESSION_ID>"
 ```
 
-### 5. Hand off — INVOKE `dp:plan-improve`, do not text-stop
+### 5. Hand off to `dp:plan-improve` — do not text-stop
 
-The plugin's Stop hook will block your turn while `steps.plan-improve.status === "pending"`. Your very next action must be:
+The plugin's Stop hook gates progression on Claude Code (hard block while `steps.plan-improve.status === "pending"`) and auto-prompts the next skill on Cursor (soft auto-submit). Either way, advancing state.json correctly is mandatory.
+
+Print a one-liner first, referencing `plan.md` as a **markdown link**:
+
+```
+Plan written — open [plan.md](${DP_STATE_DIR}/feature-pipeline/<feature>/plan.md). Running self-review now.
+```
+
+**On Claude Code**: your very next action MUST be a Skill-tool invocation in this same turn:
 
 ```
 Skill(skill_name = "dp:plan-improve")
 ```
 
-Before the Skill invocation, print a one-liner referencing `plan.md` as a **markdown link** so the user can click to open it. Compute the relative path from the consumer-project root (which is `cwd`):
-
-```
-Plan written — open [plan.md](.claude/feature-pipeline/<feature>/plan.md). Running self-review now.
-```
-
-The Skill invocation MUST still happen in this same turn.
+**On Cursor**: there is no Skill tool — end your turn after the one-liner above. The plugin's `stop` hook will auto-submit `/plan-improve` as a follow-up turn, triggering the next skill via slash-prefix auto-discovery.
