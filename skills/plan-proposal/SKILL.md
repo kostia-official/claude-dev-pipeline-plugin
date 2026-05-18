@@ -42,6 +42,33 @@ Rationale: the user will reject a shortcut and ask for the proper fix anyway. Pr
 
 If the user explicitly asks for "the minimal diff" or "just patch this one place" in their original request, follow that instruction — but say so in section 1 (User request) so the deviation is visible.
 
+### Resolve every decision BEFORE printing the proposal — no TBDs
+
+The proposal is what you **commit to**, not a worksheet. Before printing section 2, scan your draft for any of:
+
+- `TBD`, `tbd`, `<choose>`, `<TODO>`, `?`, "open question", "to be decided"
+- "proposing X (Y is the alternative if you prefer)"
+- "label TBD — suggesting X"
+- "either A or B — let me know"
+- Any phrasing that defers a decision into the proposal text
+
+If you find any, you have two paths and only two:
+
+1. **Decide.** Pick the option you think is right. Commit to it in the proposal text. The user can still redirect via the "Other" rejection path on the approval question — they don't need a parenthetical menu.
+2. **Ask via `AskUserQuestion` FIRST**, get the answer, THEN print the proposal with the resolved choice baked in. Use this only when the choice genuinely changes the scope (e.g. "should this be a new endpoint or extend the existing one?") and you can't reasonably commit without more input. Mundane choices (naming, copy wording, label text) → just decide.
+
+Never print a proposal that contains a deferred decision. The user reads the proposal expecting it to represent your committed plan. A "TBD" inside section 2 means you handed off the decision instead of making it.
+
+**Anti-example — TBD embedded in the proposal:**
+
+> - Add Nano Banana Pro (`google/gemini-3-pro-image-preview`) as a third entry in the textImageEdit model registry; in the UI it shows up as a new option in the existing model dropdown (label TBD — proposing "Nano Banana Pro" since that's its product name; "Gemini 3 Pro Image" is the fallback if you prefer a generic name).
+
+Two failures here: (a) the model embedded a menu into the bullet instead of picking, and (b) the parenthetical is longer than the actual change. Corrected:
+
+> - Add `google/gemini-3-pro-image-preview` as a third entry in the textImageEdit model registry; UI label "Nano Banana Pro" (product name). New option in the existing model dropdown.
+
+If the user prefers "Gemini 3 Pro Image" they say so on rejection — but the proposal commits.
+
 ### 2. Print the proposal in chat — three required sections + one conditional, distinct shapes
 
 The proposal must be **scannable in under 30 seconds**. The user reviews it to redirect approach BEFORE you spend effort on a detailed plan.
@@ -95,12 +122,36 @@ For bug fixes: the diagnosis already lives in 1.5; bullets here are purely the f
 
 - **Bullet list.** One distinct point per bullet. No prose paragraphs. No headers, no nested sub-bullets unless absolutely required.
 - **One idea per bullet.** Do not bundle two ideas into one bullet just because they relate. When in doubt, split.
-- **Order bullets by importance, biggest first.** The first 2–4 bullets must capture the **load-bearing changes** — the new behavior, new model, scope shift, the thing that justifies the work existing. Mechanical follow-ons (file renames, symbol renames, type renames, README touch-ups, cron-entry updates, dispatch-table edits) belong **at the end**. If a bullet is purely a mechanical consequence of an earlier bullet, demote it. If a bullet only matters to someone reading the file diff, **cut it from the proposal entirely** — it'll surface in `plan.md`'s file-by-file section. The user reviews the proposal to redirect approach; renames are not approach.
-- **No fixed count.** Include every key point the user needs to evaluate the plan. If there are 8 distinct points, write 8 bullets. Never drop a key detail to hit a length target. But: the *count* doesn't include trivial mechanical changes — those don't belong in the proposal at all.
+- **Write at INTENT altitude, not code altitude.** Each bullet describes *what changes about the system's behavior*, not *what code edits land in the diff*. Code-altitude bullets — "rename X to Y", "add param to function Z", "drop the cross-site clause", "extend method M to handle case N", "change config field A to B", "replace import in file C" — are forbidden in section 2. They belong in `plan.md`'s file-by-file section, not here. The right altitude reads like: "We currently do X wrong, the change makes it Y, so the user/system sees Z" — or — "Add capability X via <high-level mechanism> so <user-visible result>." Never name a function, variable, identifier, file path, or symbol unless it's central to the *concept* of what's changing (e.g. swapping out an entire model is fine; renaming the function that consumes it is not).
+- **Order bullets by importance, biggest first.** The first 2–4 bullets capture the **load-bearing changes** — the new behavior, new model, scope shift, the thing that justifies the work existing. Mechanical follow-ons (file renames, symbol renames, README touch-ups, cron-entry updates, dispatch-table edits) **don't belong in section 2 at all**. They go in `plan.md`. The previous version of this rule said "demote them to the end" — that was wrong. Cut them.
+- **No fixed count.** Include every key point the user needs to evaluate the plan. Never drop a key detail to hit a length target. But: the *count* doesn't include code-altitude changes — those don't belong in the proposal.
 - **No bloat.** Each bullet carries new information. No padding, no restating section 1, no "as mentioned above". Delete any bullet that doesn't add a key point.
-- Each bullet is 1–3 lines. If it wraps past three lines, you're packing implementation detail in — that belongs in `plan.md`, not the proposal.
+- Each bullet is 1–3 lines. If it wraps past three lines, you're packing implementation detail in — extract to `plan.md`.
 - **Last bullet is always "Out of scope: …"** listing what's intentionally not part of this plan.
-- Describes **what you'll do** and the user-visible behavior change. For bug fixes, the diagnosis is in 1.5 — bullets here are purely the fix.
+- For bug fixes, the diagnosis is in 1.5 — bullets here are purely the fix at intent altitude ("change selection criterion to include site id" not "add `siteId` to the `where` clause of `findInvites`").
+
+**Anti-example — code altitude, reads as a diff in English:**
+
+> ### 2. Plan proposal
+> - Move the Pending bucket from `GeneralSafetyInstructionRecordInvite` (PENDING status) to `EmployeeInvite` (status PENDING, employee connected, future `expireAt`, `acceptedAt` set) so the prod resolver returns employee and the badge switch lands on "Pending".
+> - Keep the Orientation bucket as `GeneralSafetyInstructionRecordInvite` PENDING, but target site = `currentSite` (drop the cross-site indirection — option 1 needs same-site, the badge falls to "Orientation" because the orient fragment never fetches site regardless).
+> - Retarget `planBucketsForSite`'s Pending count to `EmployeeInvite` (status PENDING at site) and Orientation count to same-site orient invites; drop the now-dead cross-site clauses (`site: { not: siteId }`, target-site instructor lookup, single-site guard).
+> - Extend `createEmployeeInvites` to handle `EmployeeInviteStatus.PENDING` (status→bucket map now covers Pending/Invited/InvitationExpired); per-bucket pool partitioning is unchanged.
+> - Revert the three `client/` debug-fetch beacons left over from the prior `/code-debug` session so the changeset is demo-data-only.
+
+Failures: identifier names everywhere (`GeneralSafetyInstructionRecordInvite`, `planBucketsForSite`, `acceptedAt`, `where` clauses), parentheticals that describe code edits ("drop the cross-site indirection", "extend X to handle Y"), and the bullets read like the diff translated to English. A senior engineer skimming this can't tell *what's different from before* without reading the file paths.
+
+Corrected at intent altitude — same scope, no code:
+
+> ### 2. Plan proposal
+> - Switch where the "Pending" bucket pulls from: workers in that bucket now have an in-flight employment invite at the current site instead of an in-flight orientation invite. This is what the prod resolver expects, so the worker's badge correctly resolves to "Pending" instead of falling back to "Orientation".
+> - Drop the cross-site mechanism from the "Orientation" bucket — it was an artifact of the old setup. Both Pending and Orientation now seed at the current site, matching how the resolver actually selects invites.
+> - Realign the per-site bucket planner to count Pending and Orientation by their new sources, removing the now-unused cross-site code paths.
+> - Teach the invite creator about the new Pending bucket so seeding produces the same counts users requested.
+> - Clean up leftover debug instrumentation from a previous debugging session — the changeset stays demo-data-only.
+> - Out of scope: any frontend or server edits, cross-site Orientation, bucket-size retuning, translations, PDF flows.
+
+Same five load-bearing changes. Zero identifier names. Each bullet reads as the *intent* of the change, not the diff. A reader who's never seen the codebase still understands what the system does differently after this lands.
 
 **Anti-example — load-bearing changes buried, renames upfront:**
 
@@ -151,10 +202,14 @@ Prose instead of bullets, all diagnosis no plan, and 1.5 was missing.
 **Technical approach rules — every bullet must satisfy ALL of these:**
 
 - One line. If it wraps, you're packing too much in. Split or cut.
-- A **decision**, not an implementation note. ("Use limit/offset pagination" is a decision. "Add `pageSize` and `pageToken` to the new `GET /api/foo` endpoint, with `pageSize` defaulting to 20…" is a plan.)
-- No file paths, no function names, no signatures, no parameter lists.
+- A **decision at architecture altitude**, not an implementation note. The bullet must answer "which approach did we pick over the alternatives?" — not "what gets typed into the editor?". Allowed shape: "Use <approach> over <alternative>" / "<system> owns <responsibility>" / "Apply <pattern>". Forbidden shapes: anything starting with a verb that describes editor actions (`Create`, `Add`, `Rename`, `Extract`, `Extend`, `Drop`, `Move`, `Inline`, `Wire`, `Replace`), anything naming an identifier, anything describing a parameter, field, or argument. Example: "Use limit/offset pagination" is allowed (decision between alternatives). "Add `pageSize` and `pageToken` to `GET /api/foo`" is forbidden (editor action + identifier names). "Create a `paginationOpts` variable" is forbidden (editor action + identifier name + structural detail).
+- No file paths, no function names, no variable names, no signatures, no parameter lists.
+- No "create var", "add arg", "extract helper", "rename method" — those are diff-level edits, never architecture decisions.
 - No "asset gaps", "TODOs", "later", "out of scope unless you say otherwise" — those are plan-territory.
 - No prose paragraphs. No nested sub-bullets.
+- **5–8 bullets max.** If you have more, you're writing the plan; cut.
+
+Litmus test: read the bullet to someone who's never seen the codebase. If it requires repo-specific naming to make sense, it's too low — rewrite it as a *decision*.
 
 If you find yourself writing more than ~80 chars on a bullet, ask: "is this a *decision* or am I writing the plan?" — and cut.
 
