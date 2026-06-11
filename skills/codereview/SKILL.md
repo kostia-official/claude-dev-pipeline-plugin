@@ -1,18 +1,23 @@
 ---
 name: codereview
-description: Use when an active dev-pipeline run is at the codereview step. On Claude Code: invokes the official /simplify skill. On Cursor: performs an inline three-lens review (reuse, quality, efficiency).
+description: Use when an active dev-pipeline run is at the codereview step. Runs an embedded simplify review (reuse / quality / efficiency) over this run's diff and applies fixes. Cross-platform (Claude Code + Cursor), self-contained — no external /simplify dependency.
 allowed-tools:
   - Read
   - Edit
+  - Write
   - Bash(bun *)
   - Bash(git *)
   - Glob
   - Grep
+  - Agent
+  - TodoWrite
 ---
 
 # dp:codereview
 
-Final step of the pipeline. Review the changes from this run. On Claude Code: hand off to the official `/simplify` skill. On Cursor: perform an inline three-lens review (`/simplify` is unavailable, and Cursor has no Skill-tool primitive).
+Final step of the pipeline. Review the changes from this run for reuse, quality, and efficiency, then apply the fixes.
+
+This is a self-contained copy of Claude Code's built-in `simplify` skill, wrapped with dp pipeline rules. It does **not** depend on the external `/simplify` skill being installed, and runs identically on Claude Code and Cursor — both expose a subagent tool (Claude Code: `Agent`; Cursor 2.4+: `Task`).
 
 ## Inputs
 
@@ -28,49 +33,69 @@ Final step of the pipeline. Review the changes from this run. On Claude Code: ha
 bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.codereview.status running --session "<DP_SESSION_ID>"
 ```
 
-### 2. Identify the changes to review
+### 2. Run the review — embedded `simplify` harness
 
-Use `git diff` (or `git log`) to find files modified during this pipeline run. Review only those files — never unrelated working-tree changes.
+Review all changed files for reuse, quality, and efficiency. Fix any issues found.
 
-### 3. Review — platform-dependent
+> **Subagent tool**: Phase 2 spawns the three review agents via your platform's subagent tool — `Agent` on Claude Code, `Task` on Cursor (2.4+). Send all three calls in a single message so they run concurrently. If your platform cannot spawn ad-hoc subagents, run the three reviews sequentially in the main context instead — same checks, same output.
 
-**On Claude Code**: Invoke the official simplify skill via the Skill tool:
+#### Phase 1: Identify Changes
 
-```
-Skill(skill_name = "simplify")
-```
+Find the changes made during **this pipeline run**: run `git diff` (or `git diff HEAD` if there are staged changes) to see what changed. If there are no git changes, review the files this run created or edited. Review only files this run touched — never unrelated working-tree changes.
 
-This is the canonical review path on Claude Code. Do NOT do an inline review when `/simplify` is available.
+#### Phase 2: Launch Three Review Agents in Parallel
 
-If the Skill tool errors because `/simplify` is not installed, stop and tell the user:
+Launch all three agents concurrently in a single message. Pass each agent the full diff so it has the complete context.
 
-> dp:codereview requires the official `/simplify` skill. Install it once:
->
->     /plugin marketplace add anthropics/claude-plugins-official
->     /plugin install code-simplifier
->
-> Then re-run `/dp:codereview` (or `/dp:dev-pipeline` to resume).
+##### Agent 1: Code Reuse Review
 
-Then stop. Do not advance the pipeline state — the user will retry after installing.
+For each change:
 
-**On Cursor**: `/simplify` is a Claude-Code-only skill. Cursor has no programmatic Skill-tool invocation primitive anyway. Perform an inline review instead, applying the same three lenses as `/simplify`:
+1. **Search for existing utilities and helpers** that could replace newly written code. Look for similar patterns elsewhere in the codebase — common locations are utility directories, shared modules, and files adjacent to the changed ones.
+2. **Flag any new function that duplicates existing functionality.** Suggest the existing function to use instead.
+3. **Flag any inline logic that could use an existing utility** — hand-rolled string manipulation, manual path handling, custom environment checks, ad-hoc type guards, and similar patterns are common candidates.
 
-1. **Reuse review**: search for newly written code that duplicates existing utilities/helpers in the repo. Use `Grep`/`Glob` to find similar patterns. Flag any duplication with a path-and-line reference.
-2. **Quality review**: scan the diff for hacky patterns — redundant state, parameter sprawl, near-duplicate code blocks, leaky abstractions, stringly-typed code, unnecessary JSX/element nesting (if a frontend project), nested conditionals 3+ levels deep, unnecessary or banal comments.
-3. **Efficiency review**: scan for unnecessary work, missed concurrency, hot-path bloat, recurring no-op state updates, unnecessary existence checks, unbounded data structures, overly broad operations.
+##### Agent 2: Code Quality Review
 
-Apply fixes in place. Promise.all parallelization is ALWAYS skipped (same rule as the Claude Code branch).
+Review the same changes for hacky patterns:
 
-### 4. Summarise the review — skipped first, then applied
+1. **Redundant state**: state that duplicates existing state, cached values that could be derived, observers/effects that could be direct calls
+2. **Parameter sprawl**: adding new parameters to a function instead of generalizing or restructuring existing ones
+3. **Copy-paste with slight variation**: near-duplicate code blocks that should be unified with a shared abstraction
+4. **Leaky abstractions**: exposing internal details that should be encapsulated, or breaking existing abstraction boundaries
+5. **Stringly-typed code**: using raw strings where constants, enums (string unions), or branded types already exist in the codebase
+6. **Unnecessary JSX nesting**: wrapper Boxes/elements that add no layout value — check if inner component props (flexShrink, alignItems, etc.) already provide the needed behavior
+7. **Nested conditionals**: ternary chains (`a ? x : b ? y : ...`), nested if/else, or nested switch 3+ levels deep — flatten with early returns, guard clauses, a lookup table, or an if/else-if cascade
+8. **Unnecessary comments**: comments explaining WHAT the code does (well-named identifiers already do that), narrating the change, or referencing the task/caller — delete; keep only non-obvious WHY (hidden constraints, subtle invariants, workarounds)
 
-After the review path (either `/simplify` on Claude Code or the inline three-lens review on Cursor) finishes, print a structured summary with two sections **in this order**: skipped fixes (so the user sees rejected proposals up front, with rationale), then applied fixes.
+##### Agent 3: Efficiency Review
+
+Review the same changes for efficiency:
+
+1. **Unnecessary work**: redundant computations, repeated file reads, duplicate network/API calls, N+1 patterns
+2. **Missed concurrency**: independent operations run sequentially when they could run in parallel
+3. **Hot-path bloat**: new blocking work added to startup or per-request/per-render hot paths
+4. **Recurring no-op updates**: state/store updates inside polling loops, intervals, or event handlers that fire unconditionally — add a change-detection guard so downstream consumers aren't notified when nothing changed. Also: if a wrapper function takes an updater/reducer callback, verify it honors same-reference returns (or whatever the "no change" signal is) — otherwise callers' early-return no-ops are silently defeated
+5. **Unnecessary existence checks**: pre-checking file/resource existence before operating (TOCTOU anti-pattern) — operate directly and handle the error
+6. **Memory**: unbounded data structures, missing cleanup, event listener leaks
+7. **Overly broad operations**: reading entire files when only a portion is needed, loading all items when filtering for one
+
+#### Phase 3: Fix Issues
+
+Wait for all three agents to complete. Aggregate their findings and fix each issue directly. If a finding is a false positive or not worth addressing, note it and move on — do not argue with the finding, just skip it.
+
+**Promise.all is ALWAYS skipped.** Do not introduce or apply `Promise.all` parallelization edits, even when Agent 3's "Missed concurrency" check flags one. List any such finding under Skipped in the summary below.
+
+### 3. Summarise the review — skipped first, then applied
+
+Print a structured summary with two sections **in this order**: skipped findings (so the user sees rejected suggestions up front, with rationale), then applied fixes.
 
 ```
 ## Code review
 
 ### Skipped fixes (proposed but not applied)
-1. `<path>:<line>` — <one-line description of what /simplify proposed>
-   Skipped because: <one-line rationale — e.g. "Promise.all parallelization (dp:codereview rule: never auto-apply)", "would change observable behavior", "trade-off the user should decide".>
+1. `<path>:<line>` — <one-line description of the finding>
+   Skipped because: <one-line rationale — e.g. "Promise.all parallelization (dp:codereview rule: never auto-apply)", "would change observable behavior", "false positive".>
 
 2. ...
 
@@ -81,13 +106,13 @@ After the review path (either `/simplify` on Claude Code or the inline three-len
 
 Rules:
 
-- **Skipped goes first.** The user values seeing the rejected suggestions more than the applied ones — it tells them whether the model agreed with `/simplify` or pushed back.
-- If `/simplify` proposed something and you (or its own logic) didn't apply it, you MUST list it under "Skipped" with the reason. Don't just drop it silently.
-- **Promise.all is ALWAYS skipped.** Constraint: do not introduce or apply `Promise.all` parallelization edits. If `/simplify` flagged any, list them under "Skipped" with rationale "Promise.all parallelization — dp:codereview rule: never auto-apply".
-- If a section is empty, omit it entirely (don't print "None." rows).
+- **Skipped goes first.** The user values seeing the rejected suggestions more than the applied ones — it tells them whether the model agreed with the review or pushed back.
+- If a finding surfaced and you didn't apply it, you MUST list it under "Skipped" with the reason. Don't drop it silently.
+- **Promise.all is ALWAYS skipped** with rationale "Promise.all parallelization — dp:codereview rule: never auto-apply".
+- If a section is empty, omit it entirely (don't print "None." rows). If all three agents found nothing, say so plainly.
 - File paths in the summary should be **markdown links** so the user can click — same convention as elsewhere in the pipeline.
 
-### 5. Mark done and advance
+### 4. Mark done and advance
 
 ```
 bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts advance <RUN_DIR> codereview --session "<DP_SESSION_ID>"
@@ -95,7 +120,7 @@ bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts advance <RUN_DIR> codereview --sess
 
 This is the last step — `advance` will set `state.active = false` and `currentStep = "done"`.
 
-### 6. Final hand-off
+### 5. Final hand-off
 
 Pipeline is complete. Print a short closing line referencing the run dir as a **markdown link** so the user can browse artifacts:
 
