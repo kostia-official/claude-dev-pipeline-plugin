@@ -87,9 +87,11 @@ If you skip this, the plugin-wide Stop hook will block your next response with a
 bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts advance <RUN_DIR> implementation --session "<DP_SESSION_ID>"
 ```
 
-### 7. Hand off to `dp:codereview` — do not text-stop
+**Read the `advancedTo` field from the advance output.** If the user chose "Approve — skip code review" at plan-wrapup, `advance` auto-skips codereview and returns `advancedTo: "done"`. Otherwise it returns `advancedTo: "codereview"`. Branch on this in step 7.
 
-The plugin's Stop hook gates progression on Claude Code (hard block while `steps.codereview.status === "pending"`) and auto-prompts the next skill on Cursor (soft auto-submit). Either way, advancing state.json correctly is mandatory.
+### 7. Hand off — do not text-stop
+
+**If `advancedTo === "codereview"`** (normal path): the plugin's Stop hook gates progression on Claude Code (hard block while `steps.codereview.status === "pending"`) and auto-prompts the next skill on Cursor (soft auto-submit). Either way, advancing state.json correctly is mandatory.
 
 Print a one-liner first, referencing the run dir as a **markdown link**:
 
@@ -97,10 +99,14 @@ Print a one-liner first, referencing the run dir as a **markdown link**:
 Implementation complete — typecheck + lint pass. Run dir: [${DP_STATE_DIR}/feature-pipeline/<feature>/](${DP_STATE_DIR}/feature-pipeline/<feature>/). Running codereview now.
 ```
 
-**On Claude Code**: your very next action MUST be a Skill-tool invocation in this same turn:
+- **On Claude Code**: your very next action MUST be a Skill-tool invocation in this same turn:
+  ```
+  Skill(skill_name = "dp:codereview")
+  ```
+- **On Cursor**: there is no Skill tool — end your turn after the one-liner above. The plugin's `stop` hook will auto-submit `/codereview` as a follow-up turn, triggering the next skill via slash-prefix auto-discovery.
+
+**If `advancedTo === "done"`** (code review skipped): the run is already complete — `active` is `false` and the Stop hook will not gate. Do NOT invoke `dp:codereview`. Print the closing line and stop:
 
 ```
-Skill(skill_name = "dp:codereview")
+Implementation complete — typecheck + lint pass. Code review skipped at your request. Artifacts in [${DP_STATE_DIR}/feature-pipeline/<feature>/](${DP_STATE_DIR}/feature-pipeline/<feature>/).
 ```
-
-**On Cursor**: there is no Skill tool — end your turn after the one-liner above. The plugin's `stop` hook will auto-submit `/codereview` as a follow-up turn, triggering the next skill via slash-prefix auto-discovery.

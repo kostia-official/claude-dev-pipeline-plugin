@@ -69,6 +69,10 @@ function isStepName(s: string): s is StepName {
   return (STEP_ORDER as readonly string[]).includes(s);
 }
 
+function shouldSkipStep(state: PipelineState, step: StepName): boolean {
+  return step === "codereview" && state.skipCodereview === true;
+}
+
 function looksLikePath(input: string): boolean {
   return input.includes("/") || input.startsWith("~");
 }
@@ -155,11 +159,21 @@ switch (subcommand) {
     const step = state.steps[stepName];
     step.status = "done";
     step.completedAt = new Date().toISOString();
-    const next = nextStep(stepName);
+    let next = nextStep(stepName);
+    const skipped: StepName[] = [];
+    while (next !== "done" && shouldSkipStep(state, next)) {
+      const skippedStep = state.steps[next];
+      skippedStep.status = "skipped";
+      skippedStep.completedAt = new Date().toISOString();
+      skipped.push(next);
+      next = nextStep(next);
+    }
     state.currentStep = next;
     if (next === "done") state.active = false;
     await writeState(runDir, state);
-    console.log(JSON.stringify({ ok: true, advancedTo: next, sessionId: state.sessionId ?? null }));
+    console.log(
+      JSON.stringify({ ok: true, advancedTo: next, skipped, sessionId: state.sessionId ?? null }),
+    );
     break;
   }
   case "status": {

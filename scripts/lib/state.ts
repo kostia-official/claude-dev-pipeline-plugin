@@ -33,6 +33,9 @@ export interface PipelineState {
   updatedAt?: string;
   active: boolean;
   autonomous: boolean;
+  // When true, the codereview step is auto-skipped when the pipeline reaches it
+  // (set at the plan-wrapup approval gate).
+  skipCodereview?: boolean;
   currentStep: StepName | "done";
   steps: Record<StepName, StepState>;
   args: string;
@@ -117,7 +120,16 @@ export function formatStateSummary(state: PipelineState, runDir?: string): strin
   lines.push("Steps:");
   for (const step of STEP_ORDER) {
     const s = state.steps[step];
-    const marker = s.status === "done" ? "✓" : s.status === "running" ? "▶" : s.status === "failed" ? "✗" : "·";
+    const marker =
+      s.status === "done"
+        ? "✓"
+        : s.status === "running"
+          ? "▶"
+          : s.status === "failed"
+            ? "✗"
+            : s.status === "skipped"
+              ? "⊘"
+              : "·";
     lines.push(`  ${marker} ${step.padEnd(20)} ${s.status}${s.artifact ? `  (${s.artifact})` : ""}`);
   }
   return lines.join("\n");

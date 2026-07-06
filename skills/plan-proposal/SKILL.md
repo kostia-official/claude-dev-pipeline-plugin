@@ -29,18 +29,11 @@ Short proposal, fast user feedback. **No `plan.md` is written at this stage.** T
 bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.plan-proposal.status running --session "<DP_SESSION_ID>"
 ```
 
-### No shortcuts — always propose the thorough solution
+### No shortcuts — propose the proper fix, not a band-aid
 
-When you have two plausible approaches — a quick-and-dirty patch versus a slower fix that also tidies related code, removes duplication, or extends a small refactor — **always propose the thorough one**. Not the lazy one. Not "the minimal change". Not "the smallest diff".
+Propose the thorough approach, not a quick patch. The user rejects a lazy proposal and asks for the proper fix anyway — proposing the shortcut just wastes a whole proposal cycle.
 
-Rationale: the user will reject a shortcut and ask for the proper fix anyway. Proposing the shortcut wastes a full proposal cycle. Propose the version that handles everything, including:
-
-- Removing the duplication that the change reveals.
-- Extracting a one-time-used helper into a common place if a second caller now needs it.
-- Updating call sites consistently rather than patching one and leaving a divergent shape elsewhere.
-- Cleaning up adjacent code that the change touches.
-
-If the user explicitly asks for "the minimal diff" or "just patch this one place" in their original request, follow that instruction — but say so in section 1 (User request) so the deviation is visible.
+Exception: if the user explicitly asked for a minimal diff or "just patch this one place", follow that — and say so in section 1 (User request) so the narrowed scope is visible.
 
 ### Resolve every decision BEFORE printing the proposal — no TBDs
 
@@ -101,8 +94,12 @@ For bug fixes: the diagnosis already lives in 1.5; bullets here are purely the f
 - Out of scope: <one final bullet listing what's intentionally not in this plan>
 
 ### 3. Technical approach
-- <one bullet per key technical DECISION; ≤ 1 line each>
-- <5–8 bullets max>
+<The critical technical decisions — the "how", and why this way over the alternatives. This is the ONE section where code belongs: name concrete symbols/types/files, and include a short fenced code chunk when it's the clearest way to show a signature, data shape, or the crux of the approach.
+
+3–6 decisions. Skip anything mechanically obvious from section 2. If there are genuinely none worth calling out, write "None — the approach in section 2 is mechanically obvious.">
+
+- <decision: which approach you picked and what it beats — reference code or drop in a short chunk where it clarifies the choice>
+- ...
 ```
 
 **Section 1 (User request) rules:**
@@ -122,8 +119,8 @@ For bug fixes: the diagnosis already lives in 1.5; bullets here are purely the f
 
 - **Bullet list.** One distinct point per bullet. No prose paragraphs. No headers, no nested sub-bullets unless absolutely required.
 - **One idea per bullet.** Do not bundle two ideas into one bullet just because they relate. When in doubt, split.
-- **Write at INTENT altitude, not code altitude.** Each bullet describes *what changes about the system's behavior*, not *what code edits land in the diff*. Code-altitude bullets — "rename X to Y", "add param to function Z", "drop the cross-site clause", "extend method M to handle case N", "change config field A to B", "replace import in file C" — are forbidden in section 2. They belong in `plan.md`'s file-by-file section, not here. The right altitude reads like: "We currently do X wrong, the change makes it Y, so the user/system sees Z" — or — "Add capability X via <high-level mechanism> so <user-visible result>." Never name a function, variable, identifier, file path, or symbol unless it's central to the *concept* of what's changing (e.g. swapping out an entire model is fine; renaming the function that consumes it is not).
-- **Order bullets by importance, biggest first.** The first 2–4 bullets capture the **load-bearing changes** — the new behavior, new model, scope shift, the thing that justifies the work existing. Mechanical follow-ons (file renames, symbol renames, README touch-ups, cron-entry updates, dispatch-table edits) **don't belong in section 2 at all**. They go in `plan.md`. The previous version of this rule said "demote them to the end" — that was wrong. Cut them.
+- **Write at INTENT altitude, not code altitude.** Each bullet describes *what changes about the system's behavior*, not *what code edits land in the diff*. Code-altitude bullets — "rename X to Y", "add param to function Z", "drop the cross-site clause", "extend method M to handle case N", "change config field A to B", "replace import in file C" — are forbidden in section 2. The right altitude reads like: "We currently do X wrong, the change makes it Y, so the user/system sees Z" — or — "Add capability X via <high-level mechanism> so <user-visible result>." Never name a function, variable, identifier, file path, or symbol unless it's central to the *concept* of what's changing (e.g. swapping out an entire model is fine; renaming the function that consumes it is not).
+- **Order bullets by importance, biggest first.** The first 2–4 bullets capture the **load-bearing changes** — the new behavior, new model, scope shift, the thing that justifies the work existing. Mechanical follow-ons (file renames, symbol renames, README touch-ups, cron-entry updates, dispatch-table edits) **don't belong in section 2 at all**. They go in `plan.md`. Cut them.
 - **No fixed count.** Include every key point the user needs to evaluate the plan. Never drop a key detail to hit a length target. But: the *count* doesn't include code-altitude changes — those don't belong in the proposal.
 - **No bloat.** Each bullet carries new information. No padding, no restating section 1, no "as mentioned above". Delete any bullet that doesn't add a key point.
 - Each bullet is 1–3 lines. If it wraps past three lines, you're packing implementation detail in — extract to `plan.md`.
@@ -199,29 +196,40 @@ Prose instead of bullets, all diagnosis no plan, and 1.5 was missing.
 > - CLI behaviour is unchanged because the CLI bypasses scope validation entirely.
 > - Out of scope: refactoring `withRetry` so it doesn't blindly retry programmer errors, and any cleanup of the `'client'`/`'global'` taxonomy itself.
 
-**Technical approach rules — every bullet must satisfy ALL of these:**
+**Technical approach rules — this is the tech section; polarity is the OPPOSITE of sections 1/1.5/2:**
 
-- One line. If it wraps, you're packing too much in. Split or cut.
-- A **decision at architecture altitude**, not an implementation note. The bullet must answer "which approach did we pick over the alternatives?" — not "what gets typed into the editor?". Allowed shape: "Use <approach> over <alternative>" / "<system> owns <responsibility>" / "Apply <pattern>". Forbidden shapes: anything starting with a verb that describes editor actions (`Create`, `Add`, `Rename`, `Extract`, `Extend`, `Drop`, `Move`, `Inline`, `Wire`, `Replace`), anything naming an identifier, anything describing a parameter, field, or argument. Example: "Use limit/offset pagination" is allowed (decision between alternatives). "Add `pageSize` and `pageToken` to `GET /api/foo`" is forbidden (editor action + identifier names). "Create a `paginationOpts` variable" is forbidden (editor action + identifier name + structural detail).
-- No file paths, no function names, no variable names, no signatures, no parameter lists.
-- No "create var", "add arg", "extract helper", "rename method" — those are diff-level edits, never architecture decisions.
-- No "asset gaps", "TODOs", "later", "out of scope unless you say otherwise" — those are plan-territory.
-- No prose paragraphs. No nested sub-bullets.
-- **5–8 bullets max.** If you have more, you're writing the plan; cut.
+- Sections 1, 1.5, and 2 are code-free (intent altitude). Section 3 is where the engineering lives — a code-free section 3 is a **failed** section 3. If it has no concrete code reference, signature, or real decision, you haven't written it yet.
+- Every entry is a real **decision**: which approach you picked and what it beats — "Use X over Y because Z". If there's no alternative worth weighing, it's not a decision — drop it.
+- Code is required where it clarifies the decision:
+  - Name concrete symbols, types, and files.
+  - Include a short fenced code chunk (a signature, a type/data shape, the crux of the approach) when prose would be vaguer than the code.
+  - Keep chunks illustrative — the crux, not the implementation. Past ~10 lines it belongs in `plan.md`.
+- It is a decision, NOT an edit list. "Add param `P` to `F`" is an edit (→ `plan.md`). "Thread the site id through `F` instead of refetching it — signature becomes `f(siteId: string)`" is a decision (the code shows which option won).
+- Only decisions that materially shape the implementation. **3–6 of them.** If there are genuinely none, say so explicitly — don't pad with platitudes.
 
-Litmus test: read the bullet to someone who's never seen the codebase. If it requires repo-specific naming to make sense, it's too low — rewrite it as a *decision*.
+Litmus test (inverted from section 2): if an entry would make equal sense pasted into *any* proposal — "follow existing patterns", "keep it maintainable", "use a scalable approach" — it's an empty platitude, not a decision. Cut it and write the actual choice, with the code that makes it concrete.
 
-If you find yourself writing more than ~80 chars on a bullet, ask: "is this a *decision* or am I writing the plan?" — and cut.
+**Anti-example — vague platitudes, no decision, no code (this IS the "no technical decisions" failure):**
 
-**Anti-example (do NOT produce this) for technical approach:**
+> ### 3. Technical approach
+> - Follow the existing patterns.
+> - Keep the result component clean and maintainable.
+> - Use a scalable approach for the data flow.
 
-> Extend `ResultPanel` props with `selectedItemId?: string` and `mode?: PanelMode` (or just pass `items: Item[]` already-resolved from the parent — leaner; lookup stays in the container). Choose the leaner option: parent resolves items via `getItemsFor(selectedItemId ?? fallback, { flagA, flagB })` and passes `previewItems={items}`. Component remains dumb.
+Nothing here names a choice, beats an alternative, or touches code. It could be pasted into any proposal. That is exactly what an empty tech section looks like.
 
-That belongs in `plan.md`, not the proposal. Equivalent proposal-bullet:
+**Correct — real decisions, code where it clarifies the choice:**
 
-> - Parent resolves the items per selection; the result component stays dumb.
+> ### 3. Technical approach
+> - Resolve preview items in the parent; the panel stays a dumb renderer taking `items: Item[]`. Alternative — pass `selectedItemId` + `mode` into the panel and let it look items up — rejected because it spreads the lookup across two components.
+>   ```ts
+>   // parent owns the lookup:
+>   const items = getItemsFor(selectedId ?? fallback, { flagA, flagB })
+>   return <ResultPanel items={items} />
+>   ```
+> - Use limit/offset pagination over cursor — the list is small and callers need jump-to-page.
 
-Use that level of compression for technical approach.
+Each entry names the pick, the alternative it beats, and shows the crux in code.
 
 ### 3. Ask for approval
 

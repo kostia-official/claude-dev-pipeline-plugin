@@ -41,6 +41,8 @@ Same rules Claude Code uses in regular plan mode:
 - Reference critical files with absolute paths.
 - Reference existing functions/utilities to be reused, with paths.
 - Include a verification section describing end-to-end testing.
+- For changes that repeat a pattern across files, describe the pattern once with a few representative paths — do not enumerate every file or line.
+- Write for a reader scanning quickly: structured bullets, never run-on prose that lists every symbol.
 
 You **may** ask interactive `AskUserQuestion` questions for genuinely unclear details. **Skip asking entirely if `state.autonomous === true`** — make the best decision and document it as a "decided" note in the plan.
 
@@ -54,6 +56,8 @@ Rationale: the user will reject a shortcut plan and ask for the proper one. Writ
 - Extracting one-time-used code into a shared place if a second caller now needs it (this should already appear in the "Reuse & extraction" section below — make sure it's concrete).
 - Updating ALL call sites consistently rather than patching one and leaving divergent shapes elsewhere.
 - Cleaning up adjacent code that the change touches.
+
+Thorough means the plan **covers** these as concise items — one bullet per distinct change, at the right altitude. It does NOT mean cramming every removed/added symbol and every call site into one paragraph. The detail belongs in the structured `What` bullets below (§3), described by intent and resulting shape, not as a line-by-line inventory.
 
 If the proposal explicitly opted for a minimal-diff approach (the user typed "just patch this one place" or similar, captured in section 1 of the approved proposal), follow that — but note in the plan's Context section that the scope is intentionally minimal.
 
@@ -75,8 +79,25 @@ For every file you'll create, modify, or delete:
 
 ### `<absolute-or-relative path>`
 - **Change**: <create|modify|delete>
-- **What**: <one-paragraph description>
+- **What**:
+  - Describe the file's intended end state / behavior after the change — what it does, not a line-by-line diff.
+  - Use one short bullet per distinct change when a file has several.
+  - For a large rewrite, state the resulting shape (key exports and responsibilities), not a "remove X, Y, Z / add A, B, C" inventory.
+  - Name concrete symbols or signatures only where they aid execution — not exhaustively.
 - **Why**: <one sentence>
+
+When the same change repeats across many files, describe it once and list a few representative paths instead of repeating a per-file block for each.
+
+**Avoid** (unreadable symbol inventory crammed into prose):
+
+> **What**: Remove RetryResult, RetryDelta, sync() orchestration, run(), retryFailed(), retryStoredFailures(), buildForDate(), storedFailures getter, groupByDate(), the failures field and imports. Add exported SyncResult { failures; missing }. Add sync() and syncSubjects(ids). Change processSubjects to return CapturedFailure[]. Rename fetchSubjectsForRetry → querySubjectsByIds…
+
+**Prefer** (scannable, intent-first):
+
+> **What**:
+> - Narrow the class to sync-and-report-failures only: `sync()` and `syncSubjects(ids)` each return `SyncResult { failures, missing }`.
+> - Move retry, failure storage, and self-instantiation out (they now live in <target>).
+> - `processSubjects` becomes stateless, returning `CapturedFailure[]`.
 
 ## Reuse & extraction (REQUIRED — do not skip)
 Two explicit lists.

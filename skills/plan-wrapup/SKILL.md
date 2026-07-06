@@ -59,12 +59,17 @@ Changes since proposal:
 - **Question**: "Approve this plan and start implementation?"
 - **Options**:
   1. **Approve** — proceed to `dp:implementation`.
-  2. **Edit** — capture user feedback (use the "Other" option for free-text).
-  3. **Reject** — stop the pipeline; user wants to redo planning from earlier.
+  2. **Approve — skip code review** — proceed to `dp:implementation`, but skip the final `dp:codereview` step once implementation finishes.
+  3. **Edit** — capture user feedback (use the "Other" option for free-text).
+  4. **Reject** — stop the pipeline; user wants to redo planning from earlier.
 
 ### 5. Handle the answer
 
 - **Approve**: continue to step 6.
+- **Approve — skip code review**: set the skip flag, then continue to step 6. When `dp:implementation` finishes, `advance` auto-skips codereview and the run ends there.
+  ```
+  bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> skipCodereview true --session "<DP_SESSION_ID>"
+  ```
 - **Edit**:
   1. **If feedback adds new details** about the feature itself (new edge case, additional related file, changed constraint) — patch BOTH `plan.md` AND `context.md` in place. They must remain consistent.
   2. Re-read the updated `plan.md` (loop back to step 2 or step 4 as appropriate).
