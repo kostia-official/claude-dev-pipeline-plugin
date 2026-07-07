@@ -41,17 +41,18 @@ bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.plan-review.sta
 
 ### Phase 0 — Gather inputs
 
-Read `<RUN_DIR>/plan.md` and `<RUN_DIR>/context.md` in full — you will pass **both, inline**, to every finder in Phase 1 so each one starts with the material in hand instead of re-reading the same two files. They remain the review scope; finders Grep/Read only the repo code needed to verify a claim.
+Read `<RUN_DIR>/plan.md` and `<RUN_DIR>/context.md` in full — this is the review scope (you need them for Phase 2 dedup/ranking). Each finder in Phase 1 is given **both file paths** and reads them itself; the repo is fair game via Grep/Read to ground any claim.
 
 ### Phase 1 — Find candidates (7 angles, ≤6 candidates each)
 
-Run **7 independent finder angles** as parallel agents. Each returns **up to 6** candidates. Prepend to every finder's prompt (a) this shared framing and (b) the full inline text of `plan.md` and `context.md` (from Phase 0):
+Run **7 independent finder angles** as parallel agents. Each returns **up to 6** candidates. Give every finder this shared framing (substitute the real run-dir path for `<RUN_DIR>`):
 
 ```
-You are reviewing the implementation PLAN provided below (plan.md), before any
-code exists, against the requirements (context.md, also provided below). Both
-documents are included inline — do NOT re-Read them. To ground a claim in real
-code, Grep/Read only the repo file you're verifying.
+You are reviewing an implementation PLAN, before any code exists, against the
+requirements and the current repo. FIRST, Read <RUN_DIR>/plan.md and
+<RUN_DIR>/context.md in full — plan.md is what you review; context.md is the
+requirements contract. Then, to ground a claim in real code, Grep/Read only the
+repo file you're verifying.
 
 Review for recall — catch every real issue a careful reviewer would catch in
 one sitting; err toward surfacing. Pass through every candidate with a nameable

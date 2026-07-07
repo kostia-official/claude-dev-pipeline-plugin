@@ -137,7 +137,7 @@ The plugin's Stop hook gates progression on Claude Code (hard block while `steps
 Print a one-liner first, referencing `plan.md` as a **markdown link**:
 
 ```
-Plan written — open [plan.md](${DP_STATE_DIR}/feature-pipeline/<feature>/plan.md). Running self-review now.
+Plan written — open [plan.md](${DP_STATE_DIR}/feature-pipeline/<feature>/plan.md). Running plan review now.
 ```
 
 **On Claude Code**: your very next action MUST be a Skill-tool invocation in this same turn:
