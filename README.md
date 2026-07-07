@@ -150,18 +150,35 @@ Then in chat:
 
 ### Publishing updates
 
-1. Make changes (manually or via `dp:improve`).
-2. Push: `git push`.
-3. Tag the release: `git tag v$(jq -r .version .claude-plugin/plugin.json) && git push --tags`.
+**"Publishing" means making a new version installable through the plugin's _marketplace_ — it is NOT the same as `git push`.** `git push` (and `npm publish`) are only *transport*; the plugin becomes *published* when consumers can install/update it from a marketplace catalog. Keep that distinction in mind.
 
-End users update via:
+This repo is a **self-hosted GitHub marketplace** (`.claude-plugin/marketplace.json` + `.cursor-plugin/marketplace.json`), so the release flow is:
+
+1. Make changes (manually or via `dp:improve`).
+2. **Bump `version` in all four manifests in lockstep** — `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` (top-level **and** `plugins[0].version`), `.cursor-plugin/plugin.json`, `.cursor-plugin/marketplace.json` (`metadata.version`). `dp:improve` does this automatically. Versions are **pinned**, so consumers receive an update only when this string changes — pushing commits without bumping it does nothing.
+3. Push the catalog + source: `git push`.
+4. Tag the release with the version-resolution convention (`dp--v<version>`, **not** a plain `v<version>`): from the repo root run `claude plugin tag --push`. It derives `dp--v<version>` from the manifest and pushes it. (Optional unless another plugin depends on this one, but it's the correct format; a hand-made `git tag v<version>` is the wrong shape for Claude Code's version resolver.)
+
+End users then update via:
 
 ```
 /plugin marketplace update claude-dev-pipeline-plugin
 /reload-plugins
 ```
 
-(Or enable auto-update for that marketplace in `/plugin > Marketplaces`.)
+**Auto-update is off by default for third-party marketplaces** — consumers must enable it per-marketplace in `/plugin > Marketplaces`, or an org admin sets `"autoUpdate": true` on the `extraKnownMarketplaces` entry in managed settings. The publisher cannot force auto-update.
+
+#### Non-git ways to publish (alternatives)
+
+Git is only this repo's chosen transport. A Claude Code plugin can be published without git:
+
+- **npm** — `npm publish` the plugin package, then reference it with a `{ "source": "npm", "package": "…" }` marketplace entry. Fetched via `npm install`; no git.
+- **Org marketplace (claude.ai)** — Organization settings → Plugins → upload a plugin `.zip` (or GitHub-sync). Consumed by claude.ai chat + Cowork.
+- **Anthropic community directory** — submit at `clau.de/plugin-directory-submission` (runs validation + safety screening) to be listed in the in-app `/plugin` Discover tab as `@claude-community`.
+
+#### Local author install (how it runs on this machine)
+
+On the author's machine the plugin is registered as a **`directory`-source marketplace** pointing at the working tree (see `~/.claude/plugins/known_marketplaces.json` → `"source": "directory"`) and installed as `dp@claude-dev-pipeline-plugin`. That's a non-git local install — run `/reload-plugins` to pick up edits with no push.
 
 ### Upgrading from v0.4.x to v0.5.0
 
