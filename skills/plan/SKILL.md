@@ -130,9 +130,9 @@ bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.plan.artifact "
 bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts advance <RUN_DIR> plan --session "<DP_SESSION_ID>"
 ```
 
-### 5. Hand off to `dp:plan-improve` — do not text-stop
+### 5. Hand off to `dp:plan-review` — do not text-stop
 
-The plugin's Stop hook gates progression on Claude Code (hard block while `steps.plan-improve.status === "pending"`) and auto-prompts the next skill on Cursor (soft auto-submit). Either way, advancing state.json correctly is mandatory.
+The plugin's Stop hook gates progression on Claude Code (hard block while `steps.plan-review.status === "pending"`) and auto-prompts the next skill on Cursor (soft auto-submit). Either way, advancing state.json correctly is mandatory.
 
 Print a one-liner first, referencing `plan.md` as a **markdown link**:
 
@@ -143,7 +143,7 @@ Plan written — open [plan.md](${DP_STATE_DIR}/feature-pipeline/<feature>/plan.
 **On Claude Code**: your very next action MUST be a Skill-tool invocation in this same turn:
 
 ```
-Skill(skill_name = "dp:plan-improve")
+Skill(skill_name = "dp:plan-review")
 ```
 
-**On Cursor**: there is no Skill tool — end your turn after the one-liner above. The plugin's `stop` hook will auto-submit `/plan-improve` as a follow-up turn, triggering the next skill via slash-prefix auto-discovery.
+**On Cursor**: there is no Skill tool — end your turn after the one-liner above. The plugin's `stop` hook will auto-submit `/plan-review` as a follow-up turn, triggering the next skill via slash-prefix auto-discovery.

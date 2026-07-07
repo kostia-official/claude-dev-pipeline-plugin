@@ -7,14 +7,14 @@
   },
   "metadata": {
     "description": "Cursor marketplace for the dp (dev-pipeline) plugin",
-    "version": "0.8.1",
+    "version": "0.9.0",
     "pluginRoot": "."
   },
   "plugins": [
     {
       "name": "dp",
       "source": ".",
-      "description": "Feature-planning pipeline for Cursor: investigation → proposal → plan → review → implementation → codereview, with persistent state and a stop-hook workflow gate."
+      "description": "Feature-planning pipeline for Cursor: investigation → proposal → plan → review → implementation → code-review, with persistent state and a stop-hook workflow gate."
     }
   ]
 }

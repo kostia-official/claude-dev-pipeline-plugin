@@ -15,9 +15,9 @@ Final sanity pass + user sign-off on `plan.md` before implementation begins.
 ## Inputs
 
 - `RUN_DIR` — run directory.
-- `<RUN_DIR>/plan.md` — the plan, already reviewed and patched by `dp:plan-improve` + `dp:plan-improve-apply`.
+- `<RUN_DIR>/plan.md` — the plan, already reviewed and patched by `dp:plan-review` + `dp:plan-review-apply`.
 - `<RUN_DIR>/context.md` — must remain consistent with the approved plan.
-- `<RUN_DIR>/review.md` — the review output (for the change summary).
+- `<RUN_DIR>/plan-review.md` — the review output (for the change summary).
 
 ## Procedure
 
@@ -42,7 +42,7 @@ If you find any inconsistency, patch the plan in place before proceeding.
 
 ### 3. Print a change summary
 
-3–5 bullets, diff-style, of what changed during plan-improve / plan-improve-apply since the original proposal:
+3–5 bullets, diff-style, of what changed during plan-review / plan-review-apply since the original proposal:
 
 ```
 Changes since proposal:
@@ -59,16 +59,16 @@ Changes since proposal:
 - **Question**: "Approve this plan and start implementation?"
 - **Options**:
   1. **Approve** — proceed to `dp:implementation`.
-  2. **Approve — skip code review** — proceed to `dp:implementation`, but skip the final `dp:codereview` step once implementation finishes.
+  2. **Approve — skip code review** — proceed to `dp:implementation`, but skip the final code-review steps (`dp:code-review` + `dp:code-review-apply`) once implementation finishes.
   3. **Edit** — capture user feedback (use the "Other" option for free-text).
   4. **Reject** — stop the pipeline; user wants to redo planning from earlier.
 
 ### 5. Handle the answer
 
 - **Approve**: continue to step 6.
-- **Approve — skip code review**: set the skip flag, then continue to step 6. When `dp:implementation` finishes, `advance` auto-skips codereview and the run ends there.
+- **Approve — skip code review**: set the skip flag, then continue to step 6. When `dp:implementation` finishes, `advance` auto-skips both code-review steps and the run ends there.
   ```
-  bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> skipCodereview true --session "<DP_SESSION_ID>"
+  bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> skipReview true --session "<DP_SESSION_ID>"
   ```
 - **Edit**:
   1. **If feedback adds new details** about the feature itself (new edge case, additional related file, changed constraint) — patch BOTH `plan.md` AND `context.md` in place. They must remain consistent.

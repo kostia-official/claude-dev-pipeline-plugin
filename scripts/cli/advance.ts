@@ -70,7 +70,9 @@ function isStepName(s: string): s is StepName {
 }
 
 function shouldSkipStep(state: PipelineState, step: StepName): boolean {
-  return step === "codereview" && state.skipCodereview === true;
+  return (
+    (step === "code-review" || step === "code-review-apply") && state.skipReview === true
+  );
 }
 
 function looksLikePath(input: string): boolean {

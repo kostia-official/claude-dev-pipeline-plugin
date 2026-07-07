@@ -54,7 +54,7 @@ Work each todo to completion. Make changes via `Edit` / `Write`.
 - **No `: any` annotations.** Use a precise type, `unknown` + a narrowing check, or a generic. If you genuinely cannot infer the right type, stop and ask the user via `AskUserQuestion` (skip if `autonomous`).
 - **No bare `as <Type>` casts.** Prefer `satisfies`. If a cast is genuinely necessary (rare), append `// safe-cast: <one-line reason>` to the same line. Static-analysis enforcement is the responsibility of the project's lint config — if the project doesn't lint these, suggest adding rules (`@typescript-eslint/no-explicit-any`, `@typescript-eslint/consistent-type-assertions`) and ask the user once whether to add them.
 - **Comments must justify themselves at commit time.** Before adding any comment, ask: "is this useful for someone reading the commit weeks later, who has no idea about my plan or this conversation?" If the answer is no, don't write it. Concrete rules:
-  - **NEVER reference the plan, the pipeline run, the review, or this conversation in code comments.** No "per the plan", no "added in plan-improve", no "as discussed", no "Phase N", no "based on investigation", etc.
+  - **NEVER reference the plan, the pipeline run, the review, or this conversation in code comments.** No "per the plan", no "added in plan-review", no "as discussed", no "Phase N", no "based on investigation", etc.
   - **NEVER duplicate what the code already says.** If a comment paraphrases the next line, delete it. Well-named identifiers are the documentation. Code should be clean and selfdocumented. Better create new var that with name explains code, than a comment that explain a messy code.
   - **NEVER add obvious comments** ("increment the counter", "loop over items", "set the status to running", "create 5 users" etc.). If the code is obvious, no comment is needed.
   - **If you feel the urge to comment because the code is unclear, fix the code instead.** Extract a variable with a descriptive name. Rename a misleading symbol. Split a too-clever expression. A new local variable named `effectiveSessionId` beats a comment explaining what `id ?? fallback ?? null` means.
@@ -87,25 +87,25 @@ If you skip this, the plugin-wide Stop hook will block your next response with a
 bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts advance <RUN_DIR> implementation --session "<DP_SESSION_ID>"
 ```
 
-**Read the `advancedTo` field from the advance output.** If the user chose "Approve — skip code review" at plan-wrapup, `advance` auto-skips codereview and returns `advancedTo: "done"`. Otherwise it returns `advancedTo: "codereview"`. Branch on this in step 7.
+**Read the `advancedTo` field from the advance output.** If the user chose "Approve — skip code review" at plan-wrapup, `advance` auto-skips both code-review steps and returns `advancedTo: "done"`. Otherwise it returns `advancedTo: "code-review"`. Branch on this in step 7.
 
 ### 7. Hand off — do not text-stop
 
-**If `advancedTo === "codereview"`** (normal path): the plugin's Stop hook gates progression on Claude Code (hard block while `steps.codereview.status === "pending"`) and auto-prompts the next skill on Cursor (soft auto-submit). Either way, advancing state.json correctly is mandatory.
+**If `advancedTo === "code-review"`** (normal path): the plugin's Stop hook gates progression on Claude Code (hard block while `steps.code-review.status === "pending"`) and auto-prompts the next skill on Cursor (soft auto-submit). Either way, advancing state.json correctly is mandatory.
 
 Print a one-liner first, referencing the run dir as a **markdown link**:
 
 ```
-Implementation complete — typecheck + lint pass. Run dir: [${DP_STATE_DIR}/feature-pipeline/<feature>/](${DP_STATE_DIR}/feature-pipeline/<feature>/). Running codereview now.
+Implementation complete — typecheck + lint pass. Run dir: [${DP_STATE_DIR}/feature-pipeline/<feature>/](${DP_STATE_DIR}/feature-pipeline/<feature>/). Running code review now.
 ```
 
 - **On Claude Code**: your very next action MUST be a Skill-tool invocation in this same turn:
   ```
-  Skill(skill_name = "dp:codereview")
+  Skill(skill_name = "dp:code-review")
   ```
-- **On Cursor**: there is no Skill tool — end your turn after the one-liner above. The plugin's `stop` hook will auto-submit `/codereview` as a follow-up turn, triggering the next skill via slash-prefix auto-discovery.
+- **On Cursor**: there is no Skill tool — end your turn after the one-liner above. The plugin's `stop` hook will auto-submit `/code-review` as a follow-up turn, triggering the next skill via slash-prefix auto-discovery.
 
-**If `advancedTo === "done"`** (code review skipped): the run is already complete — `active` is `false` and the Stop hook will not gate. Do NOT invoke `dp:codereview`. Print the closing line and stop:
+**If `advancedTo === "done"`** (code review skipped): the run is already complete — `active` is `false` and the Stop hook will not gate. Do NOT invoke `dp:code-review`. Print the closing line and stop:
 
 ```
 Implementation complete — typecheck + lint pass. Code review skipped at your request. Artifacts in [${DP_STATE_DIR}/feature-pipeline/<feature>/](${DP_STATE_DIR}/feature-pipeline/<feature>/).

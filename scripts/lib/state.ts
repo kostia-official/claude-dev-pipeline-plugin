@@ -6,11 +6,12 @@ export const STEP_ORDER = [
   "investigation",
   "plan-proposal",
   "plan",
-  "plan-improve",
-  "plan-improve-apply",
+  "plan-review",
+  "plan-review-apply",
   "plan-wrapup",
   "implementation",
-  "codereview",
+  "code-review",
+  "code-review-apply",
 ] as const;
 
 export type StepName = (typeof STEP_ORDER)[number];
@@ -33,9 +34,9 @@ export interface PipelineState {
   updatedAt?: string;
   active: boolean;
   autonomous: boolean;
-  // When true, the codereview step is auto-skipped when the pipeline reaches it
-  // (set at the plan-wrapup approval gate).
-  skipCodereview?: boolean;
+  // When true, the code-review and code-review-apply steps are auto-skipped when
+  // the pipeline reaches them (set at the plan-wrapup approval gate).
+  skipReview?: boolean;
   currentStep: StepName | "done";
   steps: Record<StepName, StepState>;
   args: string;

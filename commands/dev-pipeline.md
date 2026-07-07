@@ -51,7 +51,7 @@ Pick exactly one classification:
 `$ARGUMENTS` is a filesystem path (absolute, `~`-prefixed, or relative). Detect with: starts with `/`, `~/`, `./`, `../`, OR matches an existing path when resolved.
 
 - If it's a directory → expect `<dir>/state.json` to exist → resume that run.
-- If it's a file ending in `state.json` / `context.md` / `plan.md` / `review.md` → resolve to its parent directory → resume.
+- If it's a file ending in `state.json` / `context.md` / `plan.md` / `plan-review.md` / `code-review.md` → resolve to its parent directory → resume.
 - Otherwise (path doesn't exist, or has no `state.json`) → tell the user the path is invalid and **stop**. Do not auto-create at an explicit path.
 
 When passing the resolved path to `advance.ts` it's accepted verbatim (the script auto-detects path-style vs slug-style by the presence of `/` or `~`).
@@ -130,11 +130,12 @@ After printing the announce block in step 3, hand off to the skill matching `sta
 | investigation | `dp:investigation` (Claude Code) / `investigation` (Cursor) |
 | plan-proposal | `dp:plan-proposal` / `plan-proposal` |
 | plan | `dp:plan` / `plan` |
-| plan-improve | `dp:plan-improve` / `plan-improve` |
-| plan-improve-apply | `dp:plan-improve-apply` / `plan-improve-apply` |
+| plan-review | `dp:plan-review` / `plan-review` |
+| plan-review-apply | `dp:plan-review-apply` / `plan-review-apply` |
 | plan-wrapup | `dp:plan-wrapup` / `plan-wrapup` |
 | implementation | `dp:implementation` / `implementation` |
-| codereview | `dp:codereview` / `codereview` |
+| code-review | `dp:code-review` / `code-review` |
+| code-review-apply | `dp:code-review-apply` / `code-review-apply` |
 
 **On Claude Code**: your very next action in this same response MUST be a Skill-tool invocation:
 
@@ -144,11 +145,11 @@ Skill(skill_name = "dp:<currentStep>")
 
 Pass the run directory absolute path so the skill knows where to read/write artifacts. The plugin's Stop hook (`enforce-pipeline-progress.ts`) will hard-block your turn from ending while `steps[currentStep].status === "pending"`.
 
-**On Cursor**: there is no `Skill` tool. End your turn after the announce block — the plugin's `stop` hook will return a `followup_message` that auto-submits `/<currentStep>` as the next user turn, triggering the matching skill via slash-prefix auto-discovery. With `loop_limit: null` set in `hooks/cursor-hooks.json`, all 8 chained submissions fire without truncation.
+**On Cursor**: there is no `Skill` tool. End your turn after the announce block — the plugin's `stop` hook will return a `followup_message` that auto-submits `/<currentStep>` as the next user turn, triggering the matching skill via slash-prefix auto-discovery. With `loop_limit: null` set in `hooks/cursor-hooks.json`, all 9 chained submissions fire without truncation.
 
 ## Convention — clickable artifact paths
 
-Whenever a skill (or this orchestrator) mentions a written artifact (`context.md`, `plan.md`, `review.md`, run-dir), it MUST format the path as a **markdown link** so the user can click to open it in the IDE:
+Whenever a skill (or this orchestrator) mentions a written artifact (`context.md`, `plan.md`, `plan-review.md`, `code-review.md`, run-dir), it MUST format the path as a **markdown link** so the user can click to open it in the IDE:
 
 - Format: `[<filename>](<relativePath>/<filename>)`
 - `<relativePath>` is `${DP_STATE_DIR}/feature-pipeline/<feature>` — substitute the literal value from the system reminder (e.g. `.cursor/feature-pipeline/auth-rewrite`). Equivalently, call `bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts runpath <slug>` to print it.

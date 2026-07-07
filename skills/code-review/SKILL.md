@@ -1,27 +1,25 @@
 ---
-name: codereview
-description: Use when an active dev-pipeline run is at the codereview step. Runs a full /code-review-style review over this run's diff — 8 finder angles (3 correctness + reuse/simplification/efficiency + altitude + conventions), an adversarial verify pass, then writes a review doc and applies the CONFIRMED fixes. Cross-platform (Claude Code + Cursor), self-contained.
+name: code-review
+description: Use when an active dev-pipeline run is at the code-review step. Runs a full /code-review-style review over this run's diff — 8 finder angles (3 correctness + reuse/simplification/efficiency + altitude + conventions), an adversarial verify pass, then writes a ranked findings doc to code-review.md. Applying fixes is the next step (dp:code-review-apply). Cross-platform (Claude Code + Cursor), self-contained.
 allowed-tools:
   - Read
-  - Edit
   - Write
   - Bash(bun *)
   - Bash(git *)
   - Glob
   - Grep
   - Agent
-  - TodoWrite
 ---
 
-# dp:codereview
+# dp:code-review
 
-Final step of the pipeline. Review this run's changes the way Claude Code's built-in `/code-review` does — find bugs and cleanup across 8 angles, adversarially verify every candidate, then write a review doc (`codereview.md`) and apply the CONFIRMED fixes.
+Review this run's changes the way Claude Code's built-in `/code-review` does — find bugs and cleanup across 8 angles, adversarially verify every candidate, then write a ranked findings doc (`code-review.md`). This step **finds and verifies only**; `dp:code-review-apply` walks the doc and applies the fixes.
 
 This is a self-contained port of `/code-review` (high effort, no output cap) wrapped with dp pipeline rules. It does **not** depend on the external `/code-review` or `/simplify` skills being installed, and runs identically on Claude Code and Cursor — both expose a subagent tool (Claude Code: `Agent`; Cursor 2.4+: `Task`).
 
-Behaviour chosen for the pipeline:
+Behaviour:
 - **Depth**: high effort — all 8 finder angles, 1-vote verify, recall-biased. **No output cap** — every finding that survives verification goes in the doc.
-- **Apply**: auto-apply only verifier-**CONFIRMED** findings. **PLAUSIBLE** findings are written into the doc as recommendations, not applied. **REFUTED** are dropped.
+- **Verdicts**: the doc marks each finding CONFIRMED or PLAUSIBLE (REFUTED dropped). `dp:code-review-apply` auto-applies CONFIRMED and leaves PLAUSIBLE as recommendations.
 
 ## Inputs
 
@@ -34,7 +32,7 @@ Behaviour chosen for the pipeline:
 ### 1. Mark running
 
 ```
-bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.codereview.status running --session "<DP_SESSION_ID>"
+bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.code-review.status running --session "<DP_SESSION_ID>"
 ```
 
 > **Subagent tool**: Phases 1 and 2 spawn agents via your platform's subagent tool — `Agent` on Claude Code, `Task` on Cursor (2.4+). Send parallel calls in a single message so they run concurrently. If your platform cannot spawn ad-hoc subagents, run the angles/verifiers sequentially in the main context instead — same checks, same output.
@@ -107,14 +105,14 @@ Join verdicts back by `ref`. **Keep CONFIRMED and PLAUSIBLE; drop REFUTED.** Ran
 
 ### Phase 3 — Write the review doc
 
-Write `<RUN_DIR>/codereview.md`. List **every** CONFIRMED and PLAUSIBLE finding (no cap). Group by category, correctness first, most-severe first within each group. Mark each finding's verdict; CONFIRMED correctness/cleanup will be auto-applied in Phase 4, PLAUSIBLE are recommendations.
+Write `<RUN_DIR>/code-review.md`. List **every** CONFIRMED and PLAUSIBLE finding (no cap). **Number findings sequentially across the whole doc** (so `dp:code-review-apply` can create one todo per finding), grouped by category, correctness first, most-severe first within each group. Mark each finding's verdict.
 
 ```markdown
 # Code Review: <feature>
 
 ## Summary
 <N correctness / M cleanup findings · CONFIRMED x / PLAUSIBLE y · scope: <diff range> · effort: high>
-<one line on overall health, then: applied x CONFIRMED fixes; left y PLAUSIBLE as recommendations>
+<one line on overall health>
 
 ## Correctness
 ### 1. [CONFIRMED · HIGH] <summary> — [`file:line`](file#Lline)
@@ -136,40 +134,33 @@ Write `<RUN_DIR>/codereview.md`. List **every** CONFIRMED and PLAUSIBLE finding 
 ## Altitude
 ## Conventions
 <same entry shape; each Conventions entry cites its CLAUDE.md rule: **Rule**: `<rule_source>` — "<rule_quote>">
-
-## Applied fixes
-<filled in Phase 4 — CONFIRMED findings that were auto-fixed, as `file:line — what changed`>
-
-## Skipped
-<CONFIRMED findings NOT applied, with reason — e.g. Promise.all parallelization; PLAUSIBLE recommendations are listed in their category sections above, not here>
 ```
 
-Omit any category section that has no findings. If nothing survives verification, write a doc whose Summary says so plainly and skip the empty sections.
+Omit any category section that has no findings. `dp:code-review-apply` will append **## Applied fixes** and **## Skipped** sections after it applies the fixes — do not add them here.
 
-### Phase 4 — Apply the CONFIRMED fixes
+If nothing survives verification, write a doc whose Summary says so plainly, skip the empty sections, and end the body with exactly `No issues found.` (so `dp:code-review-apply` can skip straight to advance).
 
-Apply each **CONFIRMED** finding's fix directly via `Edit`/`Write`. **Do NOT apply PLAUSIBLE findings** — they stay as recommendations in the doc.
-
-- **`Promise.all` is ALWAYS skipped.** Never introduce or apply a `Promise.all` parallelization edit, even when an Efficiency CONFIRMED finding proposes one. List it under **Skipped** with rationale "Promise.all parallelization — dp:codereview rule: never auto-apply".
-- If a CONFIRMED fix turns out to be a false positive on closer inspection or would change observable behavior, skip it and record it under **Skipped** with the reason — don't apply silently, don't drop silently.
-
-After applying, fill the doc's **Applied fixes** and **Skipped** sections.
-
-### 5. Record the artifact, mark done and advance
+### 4. Record the artifact, mark done and advance
 
 ```
-bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.codereview.artifact "codereview.md" --session "<DP_SESSION_ID>"
-bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts advance <RUN_DIR> codereview --session "<DP_SESSION_ID>"
+bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.code-review.artifact "code-review.md" --session "<DP_SESSION_ID>"
+bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts advance <RUN_DIR> code-review --session "<DP_SESSION_ID>"
 ```
 
-This is the last step — `advance` will set `state.active = false` and `currentStep = "done"`.
+### 5. Hand off to `dp:code-review-apply` — do not text-stop
 
-### 6. Final hand-off
+The plugin's Stop hook gates progression on Claude Code (hard block while `steps.code-review-apply.status === "pending"`) and auto-prompts the next skill on Cursor (soft auto-submit). Either way, advancing state.json correctly is mandatory.
 
-Pipeline is complete. Print a short closing line referencing the review doc and run dir as **markdown links** so the user can browse artifacts:
+Print a one-liner first, referencing `code-review.md` as a **markdown link**:
 
 ```
-Pipeline complete — review at [codereview.md](${DP_STATE_DIR}/feature-pipeline/<feature>/codereview.md), all artifacts in [${DP_STATE_DIR}/feature-pipeline/<feature>/](${DP_STATE_DIR}/feature-pipeline/<feature>/).
+Code reviewed — open [code-review.md](${DP_STATE_DIR}/feature-pipeline/<feature>/code-review.md). Applying confirmed fixes now.
 ```
 
-No Skill invocation needed (this is the terminal step).
+**On Claude Code**: your very next action MUST be a Skill-tool invocation in this same turn:
+
+```
+Skill(skill_name = "dp:code-review-apply")
+```
+
+**On Cursor**: there is no Skill tool — end your turn after the one-liner above. The plugin's `stop` hook will auto-submit `/code-review-apply` as a follow-up turn, triggering the next skill via slash-prefix auto-discovery.

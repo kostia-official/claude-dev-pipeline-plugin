@@ -3,11 +3,11 @@
 A Claude Code plugin (`dp` namespace) that turns feature work into an explicit, resumable, hook-enforced pipeline.
 
 ```
-investigation → plan-proposal → plan → plan-improve → plan-improve-apply
-              → plan-wrapup → implementation → codereview
+investigation → plan-proposal → plan → plan-review → plan-review-apply
+              → plan-wrapup → implementation → code-review → code-review-apply
 ```
 
-State lives in your project at `.claude/feature-pipeline/<feature>/`. Artifacts (`context.md`, `plan.md`, `review.md`, `state.json`) are plain files you can read, diff, and commit.
+State lives in your project at `.claude/feature-pipeline/<feature>/`. Artifacts (`context.md`, `plan.md`, `plan-review.md`, `code-review.md`, `state.json`) are plain files you can read, diff, and commit.
 
 ## Quick start — Claude Code
 
@@ -62,21 +62,14 @@ The pipeline works the same way as on Claude Code: state lives in `.claude/featu
 | Behavior | Claude Code | Cursor |
 |---|---|---|
 | Step chaining | `Skill(skill_name = "dp:<next>")` tool call | `stop` hook returns `followup_message: "Invoke /<next> now."` auto-submitted as next turn |
-| Stop-hook enforcement | Hard block (`decision: "block"`) | Soft auto-prompt; loop cap raised to `null` for 8-step chains |
+| Stop-hook enforcement | Hard block (`decision: "block"`) | Soft auto-prompt; loop cap raised to `null` for 9-step chains |
 | Slash namespace | `/dp:<skill>` (plugin-prefixed) | `/<skill>` (flat, e.g. `/investigation`) |
-| `dp:codereview` review | Invokes `/simplify` skill | Inline three-lens review (`/simplify` is Claude-Code-only) |
+| Review subagents | `Agent` tool | `Task` tool (Cursor 2.4+) |
 | Session-id propagation | `additionalContext` + `CLAUDE_ENV_FILE` append | `sessionStart` hook's `env` field (propagates to all subsequent hooks) |
 
-### Soft dependency
+### Code review is self-contained
 
-`dp:codereview` wraps `/simplify` from Anthropic's official `code-simplifier` plugin **on Claude Code**. If you don't have it:
-
-```
-/plugin marketplace add anthropics/claude-plugins-official
-/plugin install code-simplifier
-```
-
-If you skip this, `dp:codereview` falls back to running the simplification review itself. On Cursor this is the default — no `/simplify` install needed.
+`dp:code-review` and `dp:code-review-apply` embed the full review logic — no `/simplify` or `/code-review` install required, on either platform. `dp:code-review` fans out finder subagents and adversarially verifies every candidate into `code-review.md`; `dp:code-review-apply` applies the CONFIRMED fixes one finding at a time.
 
 ### Runtime prerequisite
 
@@ -95,11 +88,12 @@ curl -fsSL https://bun.sh/install | bash
 | 1 | `dp:investigation` | `context.md` | — |
 | 2 | `dp:plan-proposal` | (chat only) | User approves: Yes / Yes-Autonomous / No |
 | 3 | `dp:plan` | `plan.md` | — |
-| 4 | `dp:plan-improve` | `review.md` | — |
-| 5 | `dp:plan-improve-apply` | patched `plan.md` | Per-issue questions if direction unclear |
+| 4 | `dp:plan-review` | `plan-review.md` | 7 finder subagents + adversarial verify |
+| 5 | `dp:plan-review-apply` | patched `plan.md` | Per-finding todos; questions if direction unclear |
 | 6 | `dp:plan-wrapup` | finalised `plan.md` | User approves: Approve / Edit / Reject |
 | 7 | `dp:implementation` | code changes | Self-policed by the skill (no `: any`, no dirty `as` — backed by lint); Stop hook blocks completion until typecheck + lint have passed |
-| 8 | `dp:codereview` | review notes + diff | `Promise.all` opportunities are reported, never auto-applied |
+| 8 | `dp:code-review` | `code-review.md` | 8 finder subagents + adversarial verify |
+| 9 | `dp:code-review-apply` | applied fixes + updated `code-review.md` | Per-finding todos; `Promise.all` opportunities reported, never auto-applied |
 
 The pipeline can run with checkpoints (default) or fully autonomous (pick "Yes — Autonomous" at the proposal gate).
 
@@ -254,11 +248,12 @@ claude-dev-pipeline-plugin/
 │   ├── investigation/SKILL.md
 │   ├── plan-proposal/SKILL.md
 │   ├── plan/SKILL.md
-│   ├── plan-improve/SKILL.md
-│   ├── plan-improve-apply/SKILL.md
+│   ├── plan-review/SKILL.md
+│   ├── plan-review-apply/SKILL.md
 │   ├── plan-wrapup/SKILL.md
 │   ├── implementation/SKILL.md
-│   ├── codereview/SKILL.md
+│   ├── code-review/SKILL.md
+│   ├── code-review-apply/SKILL.md
 │   └── improve/SKILL.md
 ├── scripts/
 │   ├── lib/{state.ts,findRun.ts,hookSession.ts,sessionArgs.ts,hookPlatform.ts}
