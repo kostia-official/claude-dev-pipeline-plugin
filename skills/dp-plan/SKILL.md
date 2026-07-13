@@ -1,5 +1,5 @@
 ---
-name: plan
+name: dp-plan
 description: Use when an active dev-pipeline run is at the plan step. Writes a detailed plan.md (Context, Approach, File-by-file changes, Reuse & extraction, Verification) following Claude Code's built-in plan-mode discipline.
 allowed-tools:
   - Read
@@ -11,7 +11,7 @@ allowed-tools:
   - AskUserQuestion
 ---
 
-# dp:plan
+# dp:dp-plan
 
 Write a detailed plan document. The proposal is already approved; now produce a plan that an engineer (or another Claude session) can execute without further clarification.
 
@@ -28,7 +28,7 @@ Write a detailed plan document. The proposal is already approved; now produce a 
 ### 1. Mark running
 
 ```
-bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.plan.status running --session "<DP_SESSION_ID>"
+bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.dp-plan.status running --session "<DP_SESSION_ID>"
 ```
 
 ### 2. Apply built-in plan-mode discipline
@@ -126,13 +126,13 @@ Things you considered but decided not to do, with one-line reasons.
 ### 4. Mark done and advance
 
 ```
-bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.plan.artifact "plan.md" --session "<DP_SESSION_ID>"
-bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts advance <RUN_DIR> plan --session "<DP_SESSION_ID>"
+bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.dp-plan.artifact "plan.md" --session "<DP_SESSION_ID>"
+bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts advance <RUN_DIR> dp-plan --session "<DP_SESSION_ID>"
 ```
 
-### 5. Hand off to `dp:plan-review` — do not text-stop
+### 5. Hand off to `dp:dp-plan-review` — do not text-stop
 
-The plugin's Stop hook gates progression on Claude Code (hard block while `steps.plan-review.status === "pending"`) and auto-prompts the next skill on Cursor (soft auto-submit). Either way, advancing state.json correctly is mandatory.
+The plugin's Stop hook gates progression on Claude Code (hard block while `steps.dp-plan-review.status === "pending"`) and auto-prompts the next skill on Cursor (soft auto-submit). Either way, advancing state.json correctly is mandatory.
 
 Print a one-liner first, referencing `plan.md` as a **markdown link**:
 
@@ -143,7 +143,7 @@ Plan written — open [plan.md](${DP_STATE_DIR}/feature-pipeline/<feature>/plan.
 **On Claude Code**: your very next action MUST be a Skill-tool invocation in this same turn:
 
 ```
-Skill(skill_name = "dp:plan-review")
+Skill(skill_name = "dp:dp-plan-review")
 ```
 
-**On Cursor**: there is no Skill tool — end your turn after the one-liner above. The plugin's `stop` hook will auto-submit `/plan-review` as a follow-up turn, triggering the next skill via slash-prefix auto-discovery.
+**On Cursor**: there is no Skill tool — end your turn after the one-liner above. The plugin's `stop` hook will auto-submit `/dp-plan-review` as a follow-up turn, triggering the next skill via slash-prefix auto-discovery.

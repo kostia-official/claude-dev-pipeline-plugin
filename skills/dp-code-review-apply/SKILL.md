@@ -1,5 +1,5 @@
 ---
-name: code-review-apply
+name: dp-code-review-apply
 description: Use when an active dev-pipeline run is at the code-review-apply step. Walks code-review.md findings one-by-one as todos, reasons about each fix in isolation, applies CONFIRMED fixes to the working tree (PLAUSIBLE stay as recommendations, Promise.all never auto-applied), then fills the doc's Applied/Skipped sections. Terminal step. Self-contained.
 allowed-tools:
   - Read
@@ -11,14 +11,14 @@ allowed-tools:
   - TodoWrite
 ---
 
-# dp:code-review-apply
+# dp:dp-code-review-apply
 
-Apply the review findings from `dp:code-review` to the working tree, one finding at a time. The findings in `code-review.md` are **already adversarially verified** (CONFIRMED or PLAUSIBLE) — this step does not re-litigate whether they are real; it applies the confirmed ones and records the outcome. This is the **terminal step** of the pipeline.
+Apply the review findings from `dp:dp-code-review` to the working tree, one finding at a time. The findings in `code-review.md` are **already adversarially verified** (CONFIRMED or PLAUSIBLE) — this step does not re-litigate whether they are real; it applies the confirmed ones and records the outcome. This is the **terminal step** of the pipeline.
 
 ## Inputs
 
 - `RUN_DIR` — run directory.
-- `<RUN_DIR>/code-review.md` — verified findings from `dp:code-review`.
+- `<RUN_DIR>/code-review.md` — verified findings from `dp:dp-code-review`.
 
 If `code-review.md` ends with `No issues found.`, skip to step 4 (advance) and print the closing line.
 
@@ -29,7 +29,7 @@ If `code-review.md` ends with `No issues found.`, skip to step 4 (advance) and p
 ### 1. Mark running
 
 ```
-bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.code-review-apply.status running --session "<DP_SESSION_ID>"
+bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.dp-code-review-apply.status running --session "<DP_SESSION_ID>"
 ```
 
 ### 2. One todo per finding — think separately per todo
@@ -42,7 +42,7 @@ Read `<RUN_DIR>/code-review.md`. Use `TodoWrite` to create **one todo per findin
 
 - **CONFIRMED** — apply the fix directly via `Edit`/`Write`.
 - **PLAUSIBLE** — **do NOT apply.** It stays as a recommendation in the doc.
-- **`Promise.all` is ALWAYS skipped.** Never introduce or apply a `Promise.all` parallelization edit, even when a CONFIRMED Efficiency finding proposes one. Record it under **Skipped** with rationale "Promise.all parallelization — dp:code-review-apply rule: never auto-apply".
+- **`Promise.all` is ALWAYS skipped.** Never introduce or apply a `Promise.all` parallelization edit, even when a CONFIRMED Efficiency finding proposes one. Record it under **Skipped** with rationale "Promise.all parallelization — dp:dp-code-review-apply rule: never auto-apply".
 - If a CONFIRMED fix turns out to be a false positive on closer inspection, or would change observable behavior, skip it and record it under **Skipped** with the reason — don't apply silently, don't drop silently.
 
 After working all todos, append two sections to `<RUN_DIR>/code-review.md`:
@@ -58,7 +58,7 @@ After working all todos, append two sections to `<RUN_DIR>/code-review.md`:
 ### 4. Mark done and advance
 
 ```
-bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts advance <RUN_DIR> code-review-apply --session "<DP_SESSION_ID>"
+bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts advance <RUN_DIR> dp-code-review-apply --session "<DP_SESSION_ID>"
 ```
 
 This is the last step — `advance` will set `state.active = false` and `currentStep = "done"`.

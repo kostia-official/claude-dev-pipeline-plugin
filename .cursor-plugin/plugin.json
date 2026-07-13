@@ -1,7 +1,7 @@
 {
   "name": "dp",
   "displayName": "Dev Pipeline",
-  "version": "0.9.1",
+  "version": "0.10.0",
   "description": "Feature-planning pipeline for Cursor: investigation → proposal → plan → review → implementation → code-review, with persistent state and a stop-hook workflow gate.",
   "author": {
     "name": "kostia-official",

@@ -69,7 +69,7 @@ if (step.status === "pending") {
   process.exit(0);
 }
 
-if (stepName === "implementation" && step.checksPassed !== true) {
+if (stepName === "dp-implementation" && step.checksPassed !== true) {
   log("info", "enforce-pipeline-progress", { platform, runDir, gate: "checks-not-passed" });
   emitChecksPassedGate({ platform, runDir });
   process.exit(0);
@@ -101,7 +101,7 @@ function emitChecksPassedGate(gate: ChecksPassedGate): void {
   const sharedLines = [
     `dp:implementation has not recorded a successful typecheck + lint pass.`,
     `Run the project's typecheck and lint, fix any errors, then mark the gate:`,
-    `  bun \${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set ${gate.runDir} steps.implementation.checksPassed true`,
+    `  bun \${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set ${gate.runDir} steps.dp-implementation.checksPassed true`,
   ];
   if (gate.platform === "cursor") {
     console.log(JSON.stringify({ followup_message: sharedLines.join("\n") }));

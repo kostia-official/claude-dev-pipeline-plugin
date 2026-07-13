@@ -1,5 +1,5 @@
 ---
-name: plan-review-apply
+name: dp-plan-review-apply
 description: Use when an active dev-pipeline run is at the plan-review-apply step. Walks plan-review.md findings one-by-one as todos, reasons about each fix in isolation, asks the user with concrete options when direction is unclear, and patches plan.md. Self-contained.
 allowed-tools:
   - Read
@@ -10,14 +10,14 @@ allowed-tools:
   - AskUserQuestion
 ---
 
-# dp:plan-review-apply
+# dp:dp-plan-review-apply
 
-Apply review findings to `plan.md`, one finding at a time. The findings in `plan-review.md` are **already adversarially verified** by `dp:plan-review` (CONFIRMED or PLAUSIBLE) — this step does not re-litigate whether they are real; it decides the fix and patches the plan.
+Apply review findings to `plan.md`, one finding at a time. The findings in `plan-review.md` are **already adversarially verified** by `dp:dp-plan-review` (CONFIRMED or PLAUSIBLE) — this step does not re-litigate whether they are real; it decides the fix and patches the plan.
 
 ## Inputs
 
 - `RUN_DIR` — run directory.
-- `<RUN_DIR>/plan-review.md` — verified findings from `dp:plan-review`.
+- `<RUN_DIR>/plan-review.md` — verified findings from `dp:dp-plan-review`.
 - `<RUN_DIR>/plan.md` — target file to patch.
 - `<RUN_DIR>/state.json` — for the `autonomous` flag.
 
@@ -30,7 +30,7 @@ If `plan-review.md` says `No issues found.`, skip to step 5 (advance) and hand o
 ### 1. Mark running
 
 ```
-bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.plan-review-apply.status running --session "<DP_SESSION_ID>"
+bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.dp-plan-review-apply.status running --session "<DP_SESSION_ID>"
 ```
 
 ### 2. One todo per finding — think separately per todo
@@ -67,12 +67,12 @@ Re-read the entire `plan.md`. Look for contradictions between sections that may 
 ### 6. Mark done and advance
 
 ```
-bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts advance <RUN_DIR> plan-review-apply --session "<DP_SESSION_ID>"
+bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts advance <RUN_DIR> dp-plan-review-apply --session "<DP_SESSION_ID>"
 ```
 
-### 7. Hand off to `dp:plan-wrapup` — do not text-stop
+### 7. Hand off to `dp:dp-plan-wrapup` — do not text-stop
 
-The plugin's Stop hook gates progression on Claude Code (hard block while `steps.plan-wrapup.status === "pending"`) and auto-prompts the next skill on Cursor (soft auto-submit). Either way, advancing state.json correctly is mandatory.
+The plugin's Stop hook gates progression on Claude Code (hard block while `steps.dp-plan-wrapup.status === "pending"`) and auto-prompts the next skill on Cursor (soft auto-submit). Either way, advancing state.json correctly is mandatory.
 
 Print a one-liner first, referencing the patched `plan.md` as a **markdown link**:
 
@@ -83,7 +83,7 @@ Review fixes applied — open [plan.md](${DP_STATE_DIR}/feature-pipeline/<featur
 **On Claude Code**: your very next action MUST be a Skill-tool invocation in this same turn:
 
 ```
-Skill(skill_name = "dp:plan-wrapup")
+Skill(skill_name = "dp:dp-plan-wrapup")
 ```
 
-**On Cursor**: there is no Skill tool — end your turn after the one-liner above. The plugin's `stop` hook will auto-submit `/plan-wrapup` as a follow-up turn, triggering the next skill via slash-prefix auto-discovery.
+**On Cursor**: there is no Skill tool — end your turn after the one-liner above. The plugin's `stop` hook will auto-submit `/dp-plan-wrapup` as a follow-up turn, triggering the next skill via slash-prefix auto-discovery.

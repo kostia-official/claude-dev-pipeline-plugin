@@ -1,5 +1,5 @@
 ---
-name: investigation
+name: dp-investigation
 description: Use when an active dev-pipeline run is at the investigation step. Gathers wide context about the feature and writes a structured context.md (Feature explanation, Related files, Existing code worth reusing, Risks & unknowns).
 allowed-tools:
   - Read
@@ -13,7 +13,7 @@ allowed-tools:
   - AskUserQuestion
 ---
 
-# dp:investigation
+# dp:dp-investigation
 
 You are running the **investigation** step of an active dev-pipeline run. Your goal: build a wide context for the feature so the later planning steps can be precise.
 
@@ -29,7 +29,7 @@ You are running the **investigation** step of an active dev-pipeline run. Your g
 ### 1. Mark the step as running
 
 ```
-bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.investigation.status running --session "<DP_SESSION_ID>"
+bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.dp-investigation.status running --session "<DP_SESSION_ID>"
 ```
 
 ### 2. Gather context — go wide, not narrow
@@ -82,15 +82,15 @@ Specific functions / components / utilities already in the codebase that solve s
 ### 4. Record the artifact and advance
 
 ```
-bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.investigation.artifact "context.md" --session "<DP_SESSION_ID>"
-bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts advance <RUN_DIR> investigation --session "<DP_SESSION_ID>"
+bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.dp-investigation.artifact "context.md" --session "<DP_SESSION_ID>"
+bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts advance <RUN_DIR> dp-investigation --session "<DP_SESSION_ID>"
 ```
 
 ### 5. Hand off to the next skill — do not text-stop
 
-`context.md` is a **living document** — `dp:plan-proposal` and `dp:plan-wrapup` will append to it whenever user feedback at those gates surfaces new details.
+`context.md` is a **living document** — `dp:dp-plan-proposal` and `dp:dp-plan-wrapup` will append to it whenever user feedback at those gates surfaces new details.
 
-After advance, `state.steps.plan-proposal.status === "pending"`. The plugin's Stop hook gates progression on Claude Code (hard block) and auto-prompts the next skill on Cursor (soft auto-submit). Either way, advancing state.json correctly is mandatory.
+After advance, `state.steps.dp-plan-proposal.status === "pending"`. The plugin's Stop hook gates progression on Claude Code (hard block) and auto-prompts the next skill on Cursor (soft auto-submit). Either way, advancing state.json correctly is mandatory.
 
 Before any hand-off action, print a one-liner referencing `context.md` as a **markdown link**:
 
@@ -101,7 +101,7 @@ Investigation complete — wrote [context.md](${DP_STATE_DIR}/feature-pipeline/<
 **On Claude Code**: your very next action MUST be a Skill-tool invocation in this same turn:
 
 ```
-Skill(skill_name = "dp:plan-proposal")
+Skill(skill_name = "dp:dp-plan-proposal")
 ```
 
-**On Cursor**: there is no Skill tool — end your turn after the one-liner above. The plugin's `stop` hook will auto-submit `/plan-proposal` as a follow-up turn, triggering the next skill via slash-prefix auto-discovery.
+**On Cursor**: there is no Skill tool — end your turn after the one-liner above. The plugin's `stop` hook will auto-submit `/dp-plan-proposal` as a follow-up turn, triggering the next skill via slash-prefix auto-discovery.

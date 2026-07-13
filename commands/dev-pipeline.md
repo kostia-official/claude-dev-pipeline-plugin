@@ -127,15 +127,15 @@ After printing the announce block in step 3, hand off to the skill matching `sta
 
 | currentStep | Skill name |
 |---|---|
-| investigation | `dp:investigation` (Claude Code) / `investigation` (Cursor) |
-| plan-proposal | `dp:plan-proposal` / `plan-proposal` |
-| plan | `dp:plan` / `plan` |
-| plan-review | `dp:plan-review` / `plan-review` |
-| plan-review-apply | `dp:plan-review-apply` / `plan-review-apply` |
-| plan-wrapup | `dp:plan-wrapup` / `plan-wrapup` |
-| implementation | `dp:implementation` / `implementation` |
-| code-review | `dp:code-review` / `code-review` |
-| code-review-apply | `dp:code-review-apply` / `code-review-apply` |
+| dp-investigation | `dp:dp-investigation` (Claude Code) / `dp-investigation` (Cursor) |
+| dp-plan-proposal | `dp:dp-plan-proposal` / `dp-plan-proposal` |
+| dp-plan | `dp:dp-plan` / `dp-plan` |
+| dp-plan-review | `dp:dp-plan-review` / `dp-plan-review` |
+| dp-plan-review-apply | `dp:dp-plan-review-apply` / `dp-plan-review-apply` |
+| dp-plan-wrapup | `dp:dp-plan-wrapup` / `dp-plan-wrapup` |
+| dp-implementation | `dp:dp-implementation` / `dp-implementation` |
+| dp-code-review | `dp:dp-code-review` / `dp-code-review` |
+| dp-code-review-apply | `dp:dp-code-review-apply` / `dp-code-review-apply` |
 
 **On Claude Code**: your very next action in this same response MUST be a Skill-tool invocation:
 

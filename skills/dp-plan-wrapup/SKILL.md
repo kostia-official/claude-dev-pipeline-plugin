@@ -1,5 +1,5 @@
 ---
-name: plan-wrapup
+name: dp-plan-wrapup
 description: Use when an active dev-pipeline run is at the plan-wrapup step. Final consistency check on plan.md, summarizes changes since the proposal, and asks for the user's final approval before implementation.
 allowed-tools:
   - Read
@@ -8,14 +8,14 @@ allowed-tools:
   - AskUserQuestion
 ---
 
-# dp:plan-wrapup
+# dp:dp-plan-wrapup
 
 Final sanity pass + user sign-off on `plan.md` before implementation begins.
 
 ## Inputs
 
 - `RUN_DIR` — run directory.
-- `<RUN_DIR>/plan.md` — the plan, already reviewed and patched by `dp:plan-review` + `dp:plan-review-apply`.
+- `<RUN_DIR>/plan.md` — the plan, already reviewed and patched by `dp:dp-plan-review` + `dp:dp-plan-review-apply`.
 - `<RUN_DIR>/context.md` — must remain consistent with the approved plan.
 - `<RUN_DIR>/plan-review.md` — the review output (for the change summary).
 
@@ -26,7 +26,7 @@ Final sanity pass + user sign-off on `plan.md` before implementation begins.
 ### 1. Mark running
 
 ```
-bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.plan-wrapup.status running --session "<DP_SESSION_ID>"
+bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.dp-plan-wrapup.status running --session "<DP_SESSION_ID>"
 ```
 
 ### 2. Re-read `plan.md` end to end
@@ -58,15 +58,15 @@ Changes since proposal:
 
 - **Question**: "Approve this plan and start implementation?"
 - **Options**:
-  1. **Approve** — proceed to `dp:implementation`.
-  2. **Approve — skip code review** — proceed to `dp:implementation`, but skip the final code-review steps (`dp:code-review` + `dp:code-review-apply`) once implementation finishes.
+  1. **Approve** — proceed to `dp:dp-implementation`.
+  2. **Approve — skip code review** — proceed to `dp:dp-implementation`, but skip the final code-review steps (`dp:dp-code-review` + `dp:dp-code-review-apply`) once implementation finishes.
   3. **Edit** — capture user feedback (use the "Other" option for free-text).
   4. **Reject** — stop the pipeline; user wants to redo planning from earlier.
 
 ### 5. Handle the answer
 
 - **Approve**: continue to step 6.
-- **Approve — skip code review**: set the skip flag, then continue to step 6. When `dp:implementation` finishes, `advance` auto-skips both code-review steps and the run ends there.
+- **Approve — skip code review**: set the skip flag, then continue to step 6. When `dp:dp-implementation` finishes, `advance` auto-skips both code-review steps and the run ends there.
   ```
   bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> skipReview true --session "<DP_SESSION_ID>"
   ```
@@ -84,12 +84,12 @@ Changes since proposal:
 ### 6. Advance
 
 ```
-bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts advance <RUN_DIR> plan-wrapup --session "<DP_SESSION_ID>"
+bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts advance <RUN_DIR> dp-plan-wrapup --session "<DP_SESSION_ID>"
 ```
 
-### 7. Hand off to `dp:implementation` — do not text-stop
+### 7. Hand off to `dp:dp-implementation` — do not text-stop
 
-The plugin's Stop hook gates progression on Claude Code (hard block while `steps.implementation.status === "pending"`) and auto-prompts the next skill on Cursor (soft auto-submit). Either way, advancing state.json correctly is mandatory.
+The plugin's Stop hook gates progression on Claude Code (hard block while `steps.dp-implementation.status === "pending"`) and auto-prompts the next skill on Cursor (soft auto-submit). Either way, advancing state.json correctly is mandatory.
 
 Print a one-liner first, referencing the approved `plan.md` as a **markdown link**:
 
@@ -100,7 +100,7 @@ Plan approved — see [plan.md](${DP_STATE_DIR}/feature-pipeline/<feature>/plan.
 **On Claude Code**: your very next action MUST be a Skill-tool invocation in this same turn:
 
 ```
-Skill(skill_name = "dp:implementation")
+Skill(skill_name = "dp:dp-implementation")
 ```
 
-**On Cursor**: there is no Skill tool — end your turn after the one-liner above. The plugin's `stop` hook will auto-submit `/implementation` as a follow-up turn, triggering the next skill via slash-prefix auto-discovery.
+**On Cursor**: there is no Skill tool — end your turn after the one-liner above. The plugin's `stop` hook will auto-submit `/dp-implementation` as a follow-up turn, triggering the next skill via slash-prefix auto-discovery.

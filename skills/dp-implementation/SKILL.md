@@ -1,5 +1,5 @@
 ---
-name: implementation
+name: dp-implementation
 description: Use when an active dev-pipeline run is at the implementation step. Generates todos from plan.md, implements them one-by-one, and runs typecheck + lint at the end. Strict-typing rules (no `any`, no dirty `as`) are self-policed by the skill and verified by the project's lint.
 allowed-tools:
   - Read
@@ -17,9 +17,9 @@ allowed-tools:
   - AskUserQuestion
 ---
 
-# dp:implementation
+# dp:dp-implementation
 
-Implement the approved plan. The plugin's plugin-wide Stop hook (`enforce-pipeline-progress.ts`) blocks completion of this step until `steps.implementation.checksPassed === true`.
+Implement the approved plan. The plugin's plugin-wide Stop hook (`enforce-pipeline-progress.ts`) blocks completion of this step until `steps.dp-implementation.checksPassed === true`.
 
 ## Inputs
 
@@ -33,7 +33,7 @@ Implement the approved plan. The plugin's plugin-wide Stop hook (`enforce-pipeli
 ### 1. Mark running
 
 ```
-bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.implementation.status running --session "<DP_SESSION_ID>"
+bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.dp-implementation.status running --session "<DP_SESSION_ID>"
 ```
 
 ### 2. Generate todos from `plan.md`
@@ -76,7 +76,7 @@ If errors appear: fix them in place, then re-run. Loop until both pass clean.
 Only after both typecheck and lint exit zero with no errors:
 
 ```
-bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.implementation.checksPassed true --session "<DP_SESSION_ID>"
+bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.dp-implementation.checksPassed true --session "<DP_SESSION_ID>"
 ```
 
 If you skip this, the plugin-wide Stop hook will block your next response with a corrective message — fix it and try again.
@@ -84,14 +84,14 @@ If you skip this, the plugin-wide Stop hook will block your next response with a
 ### 6. Advance
 
 ```
-bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts advance <RUN_DIR> implementation --session "<DP_SESSION_ID>"
+bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts advance <RUN_DIR> dp-implementation --session "<DP_SESSION_ID>"
 ```
 
-**Read the `advancedTo` field from the advance output.** If the user chose "Approve — skip code review" at plan-wrapup, `advance` auto-skips both code-review steps and returns `advancedTo: "done"`. Otherwise it returns `advancedTo: "code-review"`. Branch on this in step 7.
+**Read the `advancedTo` field from the advance output.** If the user chose "Approve — skip code review" at plan-wrapup, `advance` auto-skips both code-review steps and returns `advancedTo: "done"`. Otherwise it returns `advancedTo: "dp-code-review"`. Branch on this in step 7.
 
 ### 7. Hand off — do not text-stop
 
-**If `advancedTo === "code-review"`** (normal path): the plugin's Stop hook gates progression on Claude Code (hard block while `steps.code-review.status === "pending"`) and auto-prompts the next skill on Cursor (soft auto-submit). Either way, advancing state.json correctly is mandatory.
+**If `advancedTo === "dp-code-review"`** (normal path): the plugin's Stop hook gates progression on Claude Code (hard block while `steps.dp-code-review.status === "pending"`) and auto-prompts the next skill on Cursor (soft auto-submit). Either way, advancing state.json correctly is mandatory.
 
 Print a one-liner first, referencing the run dir as a **markdown link**:
 
@@ -101,11 +101,11 @@ Implementation complete — typecheck + lint pass. Run dir: [${DP_STATE_DIR}/fea
 
 - **On Claude Code**: your very next action MUST be a Skill-tool invocation in this same turn:
   ```
-  Skill(skill_name = "dp:code-review")
+  Skill(skill_name = "dp:dp-code-review")
   ```
-- **On Cursor**: there is no Skill tool — end your turn after the one-liner above. The plugin's `stop` hook will auto-submit `/code-review` as a follow-up turn, triggering the next skill via slash-prefix auto-discovery.
+- **On Cursor**: there is no Skill tool — end your turn after the one-liner above. The plugin's `stop` hook will auto-submit `/dp-code-review` as a follow-up turn, triggering the next skill via slash-prefix auto-discovery.
 
-**If `advancedTo === "done"`** (code review skipped): the run is already complete — `active` is `false` and the Stop hook will not gate. Do NOT invoke `dp:code-review`. Print the closing line and stop:
+**If `advancedTo === "done"`** (code review skipped): the run is already complete — `active` is `false` and the Stop hook will not gate. Do NOT invoke `dp:dp-code-review`. Print the closing line and stop:
 
 ```
 Implementation complete — typecheck + lint pass. Code review skipped at your request. Artifacts in [${DP_STATE_DIR}/feature-pipeline/<feature>/](${DP_STATE_DIR}/feature-pipeline/<feature>/).

@@ -3,15 +3,15 @@ import { existsSync, mkdirSync } from "node:fs";
 import { UNOWNED_LABEL } from "./hookSession.ts";
 
 export const STEP_ORDER = [
-  "investigation",
-  "plan-proposal",
-  "plan",
-  "plan-review",
-  "plan-review-apply",
-  "plan-wrapup",
-  "implementation",
-  "code-review",
-  "code-review-apply",
+  "dp-investigation",
+  "dp-plan-proposal",
+  "dp-plan",
+  "dp-plan-review",
+  "dp-plan-review-apply",
+  "dp-plan-wrapup",
+  "dp-implementation",
+  "dp-code-review",
+  "dp-code-review-apply",
 ] as const;
 
 export type StepName = (typeof STEP_ORDER)[number];
@@ -34,8 +34,8 @@ export interface PipelineState {
   updatedAt?: string;
   active: boolean;
   autonomous: boolean;
-  // When true, the code-review and code-review-apply steps are auto-skipped when
-  // the pipeline reaches them (set at the plan-wrapup approval gate).
+  // When true, the dp-code-review and dp-code-review-apply steps are auto-skipped
+  // when the pipeline reaches them (set at the dp-plan-wrapup approval gate).
   skipReview?: boolean;
   currentStep: StepName | "done";
   steps: Record<StepName, StepState>;
@@ -83,7 +83,7 @@ export function buildInitialState(slug: string, args: string, sessionId?: string
     updatedAt: now,
     active: true,
     autonomous: false,
-    currentStep: "investigation",
+    currentStep: "dp-investigation",
     steps,
     args,
   };

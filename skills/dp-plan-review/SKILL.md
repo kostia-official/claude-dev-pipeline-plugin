@@ -1,5 +1,5 @@
 ---
-name: plan-review
+name: dp-plan-review
 description: Use when an active dev-pipeline run is at the plan-review step. Fans out 7 finder subagents over plan.md (coverage, approach-soundness, invariant, blast-radius, altitude, design-efficiency, reuse/extraction), adversarially verifies every candidate, then writes a ranked findings doc to plan-review.md. Cross-platform (Claude Code + Cursor), self-contained.
 allowed-tools:
   - Read
@@ -10,15 +10,15 @@ allowed-tools:
   - Agent
 ---
 
-# dp:plan-review
+# dp:dp-plan-review
 
-Review the PLAN before implementation. This is the plan-time analogue of `dp:code-review`: fan out finder subagents, adversarially verify every candidate, write a ranked findings doc — but the angles are the classes of defect knowable from `plan.md` + the repo **before any code exists**. Catching them here costs a one-line plan edit; catching them at `dp:code-review` costs a re-implementation loop.
+Review the PLAN before implementation. This is the plan-time analogue of `dp:dp-code-review`: fan out finder subagents, adversarially verify every candidate, write a ranked findings doc — but the angles are the classes of defect knowable from `plan.md` + the repo **before any code exists**. Catching them here costs a one-line plan edit; catching them at `dp:dp-code-review` costs a re-implementation loop.
 
 Self-contained — no external skill dependency. Runs identically on Claude Code and Cursor (both expose a subagent tool: Claude Code `Agent`, Cursor 2.4+ `Task`).
 
 Behaviour:
 - **Depth**: high effort — all 7 finder angles, 1-vote verify, recall-biased. **No output cap** — every finding that survives verification goes in the doc.
-- **No fixes here.** This step only finds and verifies. `dp:plan-review-apply` walks the doc and patches `plan.md`.
+- **No fixes here.** This step only finds and verifies. `dp:dp-plan-review-apply` walks the doc and patches `plan.md`.
 
 ## Inputs
 
@@ -34,7 +34,7 @@ Behaviour:
 ### 1. Mark running
 
 ```
-bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.plan-review.status running --session "<DP_SESSION_ID>"
+bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.dp-plan-review.status running --session "<DP_SESSION_ID>"
 ```
 
 > **Subagent tool**: Phases 1 and 2 spawn agents via your platform's subagent tool — `Agent` on Claude Code, `Task` on Cursor (2.4+). Send parallel calls in a single message so they run concurrently. If your platform cannot spawn ad-hoc subagents, run the angles/verifiers sequentially in the main context instead — same checks, same output.
@@ -178,7 +178,7 @@ Join verdicts back by `ref`. **Keep CONFIRMED and PLAUSIBLE; drop REFUTED.** Ran
 
 ### Phase 3 — Write the review doc
 
-Write `<RUN_DIR>/plan-review.md` as a **flat numbered list** (so `dp:plan-review-apply` can create one todo per finding). List **every** CONFIRMED and PLAUSIBLE finding — no cap.
+Write `<RUN_DIR>/plan-review.md` as a **flat numbered list** (so `dp:dp-plan-review-apply` can create one todo per finding). List **every** CONFIRMED and PLAUSIBLE finding — no cap.
 
 ```markdown
 # Plan Review: <feature>
@@ -211,18 +211,18 @@ If nothing survives verification, write the file with its sole content being exa
 No issues found.
 ```
 
-(`dp:plan-review-apply` keys off that exact line to skip straight to advance.)
+(`dp:dp-plan-review-apply` keys off that exact line to skip straight to advance.)
 
 ### 4. Record the artifact, mark done and advance
 
 ```
-bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.plan-review.artifact "plan-review.md" --session "<DP_SESSION_ID>"
-bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts advance <RUN_DIR> plan-review --session "<DP_SESSION_ID>"
+bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.dp-plan-review.artifact "plan-review.md" --session "<DP_SESSION_ID>"
+bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts advance <RUN_DIR> dp-plan-review --session "<DP_SESSION_ID>"
 ```
 
-### 5. Hand off to `dp:plan-review-apply` — do not text-stop
+### 5. Hand off to `dp:dp-plan-review-apply` — do not text-stop
 
-The plugin's Stop hook gates progression on Claude Code (hard block while `steps.plan-review-apply.status === "pending"`) and auto-prompts the next skill on Cursor (soft auto-submit). Either way, advancing state.json correctly is mandatory.
+The plugin's Stop hook gates progression on Claude Code (hard block while `steps.dp-plan-review-apply.status === "pending"`) and auto-prompts the next skill on Cursor (soft auto-submit). Either way, advancing state.json correctly is mandatory.
 
 Print a one-liner first, referencing `plan-review.md` as a **markdown link**:
 
@@ -233,7 +233,7 @@ Plan reviewed — open [plan-review.md](${DP_STATE_DIR}/feature-pipeline/<featur
 **On Claude Code**: your very next action MUST be a Skill-tool invocation in this same turn:
 
 ```
-Skill(skill_name = "dp:plan-review-apply")
+Skill(skill_name = "dp:dp-plan-review-apply")
 ```
 
-**On Cursor**: there is no Skill tool — end your turn after the one-liner above. The plugin's `stop` hook will auto-submit `/plan-review-apply` as a follow-up turn, triggering the next skill via slash-prefix auto-discovery.
+**On Cursor**: there is no Skill tool — end your turn after the one-liner above. The plugin's `stop` hook will auto-submit `/dp-plan-review-apply` as a follow-up turn, triggering the next skill via slash-prefix auto-discovery.

@@ -63,13 +63,13 @@ The pipeline works the same way as on Claude Code: state lives in `.claude/featu
 |---|---|---|
 | Step chaining | `Skill(skill_name = "dp:<next>")` tool call | `stop` hook returns `followup_message: "Invoke /<next> now."` auto-submitted as next turn |
 | Stop-hook enforcement | Hard block (`decision: "block"`) | Soft auto-prompt; loop cap raised to `null` for 9-step chains |
-| Slash namespace | `/dp:<skill>` (plugin-prefixed) | `/<skill>` (flat, e.g. `/investigation`) |
+| Slash namespace | `/dp:<skill>` (plugin-prefixed) | `/<skill>` (flat, e.g. `/dp-investigation`) |
 | Review subagents | `Agent` tool | `Task` tool (Cursor 2.4+) |
 | Session-id propagation | `additionalContext` + `CLAUDE_ENV_FILE` append | `sessionStart` hook's `env` field (propagates to all subsequent hooks) |
 
 ### Code review is self-contained
 
-`dp:code-review` and `dp:code-review-apply` embed the full review logic — no `/simplify` or `/code-review` install required, on either platform. `dp:code-review` fans out finder subagents and adversarially verifies every candidate into `code-review.md`; `dp:code-review-apply` applies the CONFIRMED fixes one finding at a time.
+`dp:dp-code-review` and `dp:dp-code-review-apply` embed the full review logic — no `/simplify` or `/code-review` install required, on either platform. `dp:dp-code-review` fans out finder subagents and adversarially verifies every candidate into `code-review.md`; `dp:dp-code-review-apply` applies the CONFIRMED fixes one finding at a time.
 
 ### Runtime prerequisite
 
@@ -85,21 +85,21 @@ curl -fsSL https://bun.sh/install | bash
 
 | Step | Skill | Output | Gate |
 |---|---|---|---|
-| 1 | `dp:investigation` | `context.md` | — |
-| 2 | `dp:plan-proposal` | (chat only) | User approves: Yes / Yes-Autonomous / No |
-| 3 | `dp:plan` | `plan.md` | — |
-| 4 | `dp:plan-review` | `plan-review.md` | 7 finder subagents + adversarial verify |
-| 5 | `dp:plan-review-apply` | patched `plan.md` | Per-finding todos; questions if direction unclear |
-| 6 | `dp:plan-wrapup` | finalised `plan.md` | User approves: Approve / Edit / Reject |
-| 7 | `dp:implementation` | code changes | Self-policed by the skill (no `: any`, no dirty `as` — backed by lint); Stop hook blocks completion until typecheck + lint have passed |
-| 8 | `dp:code-review` | `code-review.md` | 8 finder subagents + adversarial verify |
-| 9 | `dp:code-review-apply` | applied fixes + updated `code-review.md` | Per-finding todos; `Promise.all` opportunities reported, never auto-applied |
+| 1 | `dp:dp-investigation` | `context.md` | — |
+| 2 | `dp:dp-plan-proposal` | (chat only) | User approves: Yes / Yes-Autonomous / No |
+| 3 | `dp:dp-plan` | `plan.md` | — |
+| 4 | `dp:dp-plan-review` | `plan-review.md` | 7 finder subagents + adversarial verify |
+| 5 | `dp:dp-plan-review-apply` | patched `plan.md` | Per-finding todos; questions if direction unclear |
+| 6 | `dp:dp-plan-wrapup` | finalised `plan.md` | User approves: Approve / Edit / Reject |
+| 7 | `dp:dp-implementation` | code changes | Self-policed by the skill (no `: any`, no dirty `as` — backed by lint); Stop hook blocks completion until typecheck + lint have passed |
+| 8 | `dp:dp-code-review` | `code-review.md` | 8 finder subagents + adversarial verify |
+| 9 | `dp:dp-code-review-apply` | applied fixes + updated `code-review.md` | Per-finding todos; `Promise.all` opportunities reported, never auto-applied |
 
 The pipeline can run with checkpoints (default) or fully autonomous (pick "Yes — Autonomous" at the proposal gate).
 
 ### Hook enforcement (implementation step only)
 
-One hook is scoped to `dp:implementation` — it fires **only** while that skill is active:
+One hook is scoped to `dp:dp-implementation` — it fires **only** while that skill is active:
 
 - **Stop**: blocks finishing the implementation step until typecheck + lint have been recorded as passing.
 
@@ -137,10 +137,10 @@ claude --plugin-dir ~/projects/claude-dev-pipeline-plugin
 Then in chat:
 
 ```
-/dp:improve <free-text feedback about the plugin>
+/dp:dp-improve <free-text feedback about the plugin>
 ```
 
-`dp:improve` will identify the right file, preview the diff, apply, bump `version` in `.claude-plugin/plugin.json`, and create a single-purpose git commit. It refuses to run against a marketplace cache install — fork and clone first.
+`dp:dp-improve` will identify the right file, preview the diff, apply, bump `version` in `.claude-plugin/plugin.json`, and create a single-purpose git commit. It refuses to run against a marketplace cache install — fork and clone first.
 
 ### Publishing updates
 
@@ -148,8 +148,8 @@ Then in chat:
 
 This repo is a **self-hosted GitHub marketplace** (`.claude-plugin/marketplace.json` + `.cursor-plugin/marketplace.json`), so the release flow is:
 
-1. Make changes (manually or via `dp:improve`).
-2. **Bump `version` in all four manifests in lockstep** — `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` (top-level **and** `plugins[0].version`), `.cursor-plugin/plugin.json`, `.cursor-plugin/marketplace.json` (`metadata.version`). `dp:improve` does this automatically. Versions are **pinned**, so consumers receive an update only when this string changes — pushing commits without bumping it does nothing.
+1. Make changes (manually or via `dp:dp-improve`).
+2. **Bump `version` in all four manifests in lockstep** — `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` (top-level **and** `plugins[0].version`), `.cursor-plugin/plugin.json`, `.cursor-plugin/marketplace.json` (`metadata.version`). `dp:dp-improve` does this automatically. Versions are **pinned**, so consumers receive an update only when this string changes — pushing commits without bumping it does nothing.
 3. Push the catalog + source: `git push`.
 4. Tag the release with the version-resolution convention (`dp--v<version>`, **not** a plain `v<version>`): from the repo root run `claude plugin tag --push`. It derives `dp--v<version>` from the manifest and pushes it. (Optional unless another plugin depends on this one, but it's the correct format; a hand-made `git tag v<version>` is the wrong shape for Claude Code's version resolver.)
 
@@ -245,16 +245,16 @@ claude-dev-pipeline-plugin/
 │   ├── hooks.json                 # Claude Code event config (PascalCase)
 │   └── cursor-hooks.json          # Cursor event config (camelCase, v0.6.0+)
 ├── skills/                        # shared across platforms
-│   ├── investigation/SKILL.md
-│   ├── plan-proposal/SKILL.md
-│   ├── plan/SKILL.md
-│   ├── plan-review/SKILL.md
-│   ├── plan-review-apply/SKILL.md
-│   ├── plan-wrapup/SKILL.md
-│   ├── implementation/SKILL.md
-│   ├── code-review/SKILL.md
-│   ├── code-review-apply/SKILL.md
-│   └── improve/SKILL.md
+│   ├── dp-investigation/SKILL.md
+│   ├── dp-plan-proposal/SKILL.md
+│   ├── dp-plan/SKILL.md
+│   ├── dp-plan-review/SKILL.md
+│   ├── dp-plan-review-apply/SKILL.md
+│   ├── dp-plan-wrapup/SKILL.md
+│   ├── dp-implementation/SKILL.md
+│   ├── dp-code-review/SKILL.md
+│   ├── dp-code-review-apply/SKILL.md
+│   └── dp-improve/SKILL.md
 ├── scripts/
 │   ├── lib/{state.ts,findRun.ts,hookSession.ts,sessionArgs.ts,hookPlatform.ts}
 │   ├── cli/{advance.ts,status.ts}
@@ -272,11 +272,11 @@ claude-dev-pipeline-plugin/
   "createdAt": "...",
   "active": true,
   "autonomous": false,
-  "currentStep": "plan",
+  "currentStep": "dp-plan",
   "steps": {
-    "investigation":      { "status": "done", "artifact": "context.md" },
-    "plan-proposal":      { "status": "done", "approvalMode": "yes" },
-    "plan":               { "status": "running", "artifact": "plan.md" },
+    "dp-investigation":   { "status": "done", "artifact": "context.md" },
+    "dp-plan-proposal":   { "status": "done", "approvalMode": "yes" },
+    "dp-plan":            { "status": "running", "artifact": "plan.md" },
     "...":                "..."
   },
   "args": "rewrite auth to use refresh tokens"

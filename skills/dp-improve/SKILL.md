@@ -1,5 +1,5 @@
 ---
-name: improve
+name: dp-improve
 description: Use when the user asks to improve, fix, tweak, or extend the dev-pipeline plugin itself (its skills, orchestrator, scripts, manifest). Edits this plugin's source tree, bumps version, and creates a git commit. Plugin authors only — refuses to run if the plugin is installed via marketplace cache.
 allowed-tools:
   - Read
@@ -13,13 +13,13 @@ allowed-tools:
   - AskUserQuestion
 ---
 
-# dp:improve
+# dp:dp-improve
 
 Self-modifying meta-skill. Lets the plugin author iterate on this plugin from inside a Claude Code session: identify the right file, preview the edit, apply, bump version, commit.
 
 ## Inputs
 
-- `$ARGUMENTS` — free-text feedback (e.g. "make `dp:plan-proposal` ask about scope before approach", "add a section to `dp:investigation` for external dependencies").
+- `$ARGUMENTS` — free-text feedback (e.g. "make `dp:dp-plan-proposal` ask about scope before approach", "add a section to `dp:dp-investigation` for external dependencies").
 - `${DP_PLUGIN_ROOT}` — always set when this skill runs; points to the plugin source.
 
 ## Procedure
@@ -29,13 +29,13 @@ Self-modifying meta-skill. Lets the plugin author iterate on this plugin from in
 - Read `${DP_PLUGIN_ROOT}`.
 - If the path contains `/.claude/plugins/cache/` OR `/.cursor/plugins/cache/` → **REFUSE** with this exact message and stop:
 
-  > `dp:improve` cannot run against a marketplace-installed plugin: `${DP_PLUGIN_ROOT}` is in the plugin cache, and any edits would be overwritten the next time the marketplace catalog is refreshed.
+  > `dp:dp-improve` cannot run against a marketplace-installed plugin: `${DP_PLUGIN_ROOT}` is in the plugin cache, and any edits would be overwritten the next time the marketplace catalog is refreshed.
   >
   > To work on the plugin:
   >   1. Fork or clone `git@github.com:kostia-official/claude-dev-pipeline-plugin.git` to a local directory (e.g. `~/projects/claude-dev-pipeline-plugin/`).
   >   2. **On Claude Code**: run with `claude --plugin-dir <local-clone>`, or `/plugin install <local-clone>`.
   >   3. **On Cursor**: in the IDE settings, point Cursor's plugin source at the local clone (Dashboard → Plugins → Local Sources → Add).
-  >   4. Re-run `/dp:improve <your feedback>` (Claude Code) or `/improve <your feedback>` (Cursor).
+  >   4. Re-run `/dp:dp-improve <your feedback>` (Claude Code) or `/improve <your feedback>` (Cursor).
 
 - Otherwise confirm with `git -C ${DP_PLUGIN_ROOT} rev-parse --show-toplevel` that the directory is a git repo. If not, refuse and tell the user the plugin source must be a git repo.
 - Check `git -C ${DP_PLUGIN_ROOT} status --porcelain` for uncommitted changes inside the plugin tree. If any exist, REFUSE: tell the user to commit or stash those changes first so the auto-commit doesn't pull in unrelated work. Allow override only via explicit `AskUserQuestion` confirmation.
@@ -112,7 +112,7 @@ Run:
 ```
 git -C ${DP_PLUGIN_ROOT} add <list of files you actually modified>
 git -C ${DP_PLUGIN_ROOT} commit -m "$(cat <<'EOF'
-dp:improve — <one-line summary>
+dp:dp-improve — <one-line summary>
 
 <original $ARGUMENTS, indented or quoted>
 EOF
@@ -149,4 +149,4 @@ The change is also live in *this* session already (Claude Code watches plugin di
 - Never edit files outside the plugin tree (no consumer-project files, no `~/.claude/` outside the plugin).
 - Never auto-push.
 - Never bump MAJOR without explicit confirmation.
-- If the requested edit would touch `dp:improve`'s own SKILL.md or its dependencies, double-confirm with `AskUserQuestion` before writing — there is no recovery if it breaks itself in this session.
+- If the requested edit would touch `dp:dp-improve`'s own SKILL.md or its dependencies, double-confirm with `AskUserQuestion` before writing — there is no recovery if it breaks itself in this session.

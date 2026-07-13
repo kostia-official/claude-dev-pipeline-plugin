@@ -1,5 +1,5 @@
 ---
-name: plan-proposal
+name: dp-plan-proposal
 description: Use when an active dev-pipeline run is at the plan-proposal step. Prints a short proposal (user request + optional root cause for bugs + plan proposal + technical approach) for fast user feedback before any plan file is written. Loops on feedback until approved.
 allowed-tools:
   - Read
@@ -9,14 +9,14 @@ allowed-tools:
   - AskUserQuestion
 ---
 
-# dp:plan-proposal
+# dp:dp-plan-proposal
 
 Short proposal, fast user feedback. **No `plan.md` is written at this stage.** This is the cheap-iteration gate — you want the user to redirect you here, not after a 500-line plan exists.
 
 ## Inputs
 
 - `RUN_DIR` — run directory.
-- `<RUN_DIR>/context.md` — produced by `dp:investigation`. Read this in full.
+- `<RUN_DIR>/context.md` — produced by `dp:dp-investigation`. Read this in full.
 - `<RUN_DIR>/state.json` — for `args` and `autonomous` flag.
 
 ## Procedure
@@ -26,7 +26,7 @@ Short proposal, fast user feedback. **No `plan.md` is written at this stage.** T
 ### 1. Mark step as running
 
 ```
-bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.plan-proposal.status running --session "<DP_SESSION_ID>"
+bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.dp-plan-proposal.status running --session "<DP_SESSION_ID>"
 ```
 
 ### No shortcuts — propose the proper fix, not a band-aid
@@ -237,7 +237,7 @@ Use `AskUserQuestion`:
 
 - **Question**: "Approve this proposal and continue to detailed planning?"
 - **Options** (only two — "Other" is auto-added by the tool and covers any rejection or change request):
-  1. **Yes** — proceed to `dp:plan`. Keep checkpoint prompts active for later steps.
+  1. **Yes** — proceed to `dp:dp-plan`. Keep checkpoint prompts active for later steps.
   2. **Yes — Autonomous (no further questions)** — proceed and skip all remaining approval prompts.
 
 ### 3.5. CRITICAL — interpret the answer correctly
@@ -289,22 +289,22 @@ Use `AskUserQuestion`:
 Record the approval mode and advance:
 
 ```
-bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.plan-proposal.approvalMode '"yes"' --session "<DP_SESSION_ID>"
+bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.dp-plan-proposal.approvalMode '"yes"' --session "<DP_SESSION_ID>"
 # or '"yes-autonomous"' if option 2 was chosen
-bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.plan-proposal.approvedAt '"<ISO timestamp>"' --session "<DP_SESSION_ID>"
-bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts advance <RUN_DIR> plan-proposal --session "<DP_SESSION_ID>"
+bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts set <RUN_DIR> steps.dp-plan-proposal.approvedAt '"<ISO timestamp>"' --session "<DP_SESSION_ID>"
+bun ${DP_PLUGIN_ROOT}/scripts/cli/advance.ts advance <RUN_DIR> dp-plan-proposal --session "<DP_SESSION_ID>"
 ```
 
-### 6. Hand off to `dp:plan` — do not text-stop
+### 6. Hand off to `dp:dp-plan` — do not text-stop
 
-The plugin's Stop hook gates progression on Claude Code (hard block while `steps.plan.status === "pending"`) and auto-prompts the next skill on Cursor (soft auto-submit). Either way, advancing state.json correctly is mandatory.
+The plugin's Stop hook gates progression on Claude Code (hard block while `steps.dp-plan.status === "pending"`) and auto-prompts the next skill on Cursor (soft auto-submit). Either way, advancing state.json correctly is mandatory.
 
 Print a one-liner first: "Proposal approved — drafting the detailed plan now."
 
 **On Claude Code**: your very next action MUST be a Skill-tool invocation in this same turn:
 
 ```
-Skill(skill_name = "dp:plan")
+Skill(skill_name = "dp:dp-plan")
 ```
 
-**On Cursor**: there is no Skill tool — end your turn after the one-liner. The plugin's `stop` hook will auto-submit `/plan` as a follow-up turn, triggering the next skill via slash-prefix auto-discovery.
+**On Cursor**: there is no Skill tool — end your turn after the one-liner. The plugin's `stop` hook will auto-submit `/dp-plan` as a follow-up turn, triggering the next skill via slash-prefix auto-discovery.
